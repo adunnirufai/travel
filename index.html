@@ -198,6 +198,24 @@ input, textarea, select { font-family: inherit; }
 .api-hint { font-size: 12px; color: var(--gray-400); margin-top: 4px; }
 .api-hint a { color: var(--blue); }
 
+/* Preferences */
+.pref-section-label { font-size: 13px; font-weight: 600; color: var(--gray-800); margin-bottom: 8px; }
+.pref-section-sub { font-size: 12px; color: var(--gray-400); margin-bottom: 10px; margin-top: -4px; }
+.pref-pills { display: flex; flex-wrap: wrap; gap: 8px; }
+.pref-pill { display: inline-flex; align-items: center; gap: 5px; padding: 7px 13px; border-radius: 20px; font-size: 13px; font-weight: 500; border: 1.5px solid var(--gray-200); background: white; color: var(--gray-700); cursor: pointer; transition: all 0.15s; user-select: none; }
+.pref-pill:hover { border-color: var(--blue); color: var(--blue); background: var(--blue-light); }
+.pref-pill.active { border-color: var(--blue); background: var(--blue-light); color: var(--blue-dark); font-weight: 600; }
+.pref-options { display: flex; gap: 8px; flex-wrap: wrap; }
+.pref-option { flex: 1; min-width: 80px; padding: 10px 10px 8px; border: 1.5px solid var(--gray-200); border-radius: 10px; text-align: center; cursor: pointer; transition: all 0.15s; background: white; }
+.pref-option:hover { border-color: var(--blue); }
+.pref-option.active { border-color: var(--blue); background: var(--blue-light); }
+.pref-option-icon { font-size: 20px; display: block; margin-bottom: 4px; }
+.pref-option-label { font-size: 12px; font-weight: 500; color: var(--gray-700); }
+.pref-option.active .pref-option-label { color: var(--blue-dark); font-weight: 600; }
+.prefs-set-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; background: #DCFCE7; color: #166534; padding: 2px 8px; border-radius: 10px; font-weight: 600; vertical-align: middle; margin-left: 6px; }
+.prefs-nudge { background: var(--amber-light); border: 1px solid #FDE68A; border-radius: 8px; padding: 10px 14px; font-size: 13px; color: #92400E; display: flex; align-items: center; gap: 8px; margin-bottom: 4px; cursor: pointer; }
+.prefs-nudge:hover { background: #FDE68A; }
+
 /* Gradient card backgrounds */
 .grad-0 { background: linear-gradient(135deg, #0EA5E9, #6366F1); }
 .grad-1 { background: linear-gradient(135deg, #F59E0B, #EF4444); }
@@ -214,13 +232,46 @@ input, textarea, select { font-family: inherit; }
 
 <script>
 // ─── STATE ───────────────────────────────────────────────────
+const PREF_INTERESTS = [
+  { key: 'foodie',      emoji: '🍜', label: 'Local Food & Cuisine' },
+  { key: 'culture',     emoji: '🏛️', label: 'Culture & History' },
+  { key: 'nature',      emoji: '🌿', label: 'Outdoor & Nature' },
+  { key: 'nightlife',   emoji: '🍸', label: 'Nightlife & Bars' },
+  { key: 'shopping',    emoji: '🛍️', label: 'Shopping' },
+  { key: 'adventure',   emoji: '🧗', label: 'Adventure & Sports' },
+  { key: 'wellness',    emoji: '🧘', label: 'Wellness & Spa' },
+  { key: 'art',         emoji: '🎨', label: 'Art & Galleries' },
+  { key: 'photography', emoji: '📸', label: 'Photography Spots' },
+  { key: 'hidden',      emoji: '💎', label: 'Local Hidden Gems' },
+];
+
+const DEFAULT_PREFS = { interests: [], pace: '', budget: '' };
+
 const S = {
   trips: JSON.parse(localStorage.getItem('wandr_trips') || '[]'),
   view: 'home',
   tripId: null,
   dayIdx: 0,
-  apiKey: localStorage.getItem('wandr_api_key') || ''
+  apiKey: localStorage.getItem('wandr_api_key') || '',
+  prefs: JSON.parse(localStorage.getItem('wandr_prefs') || JSON.stringify(DEFAULT_PREFS))
 };
+
+function hasPrefs() {
+  return S.prefs.interests.length > 0 || S.prefs.pace || S.prefs.budget;
+}
+
+function prefsToPromptText() {
+  const lines = [];
+  if (S.prefs.interests.length) {
+    const labels = S.prefs.interests.map(k => PREF_INTERESTS.find(p => p.key === k)?.label).filter(Boolean);
+    lines.push(`- Interests: ${labels.join(', ')}`);
+  }
+  const paceMap = { relaxed: 'Relaxed (few activities, lots of free time)', balanced: 'Balanced (mix of planned and spontaneous)', action: 'Action-packed (full day, see as much as possible)' };
+  if (S.prefs.pace && paceMap[S.prefs.pace]) lines.push(`- Pace: ${paceMap[S.prefs.pace]}`);
+  const budgetMap = { budget: 'Budget-friendly (street food, free attractions, local spots)', midrange: 'Mid-range (mix of affordable and occasional splurges)', luxury: 'Luxury (fine dining, premium experiences, top-rated venues)' };
+  if (S.prefs.budget && budgetMap[S.prefs.budget]) lines.push(`- Budget: ${budgetMap[S.prefs.budget]}`);
+  return lines.join('\n');
+}
 
 function save() { localStorage.setItem('wandr_trips', JSON.stringify(S.trips)); }
 function getTrip(id) { return S.trips.find(t => t.id === id); }
@@ -602,6 +653,25 @@ function showActivityModal(tripId, dayDate, act = null) {
 }
 
 function showSettings() {
+  const p = S.prefs;
+  const pillsHtml = PREF_INTERESTS.map(({ key, emoji, label }) =>
+    `<button class="pref-pill ${p.interests.includes(key) ? 'active' : ''}" data-pref-interest="${key}">${emoji} ${label}</button>`
+  ).join('');
+
+  const paceOpts = [
+    { v: 'relaxed', icon: '🌅', label: 'Relaxed' },
+    { v: 'balanced', icon: '⚖️', label: 'Balanced' },
+    { v: 'action',  icon: '⚡', label: 'Action-packed' },
+  ];
+  const budgetOpts = [
+    { v: 'budget',   icon: '💸', label: 'Budget' },
+    { v: 'midrange', icon: '💳', label: 'Mid-range' },
+    { v: 'luxury',   icon: '✨', label: 'Luxury' },
+  ];
+
+  const paceHtml   = paceOpts.map(o => `<div class="pref-option ${p.pace === o.v ? 'active' : ''}" data-pref-pace="${o.v}"><span class="pref-option-icon">${o.icon}</span><span class="pref-option-label">${o.label}</span></div>`).join('');
+  const budgetHtml = budgetOpts.map(o => `<div class="pref-option ${p.budget === o.v ? 'active' : ''}" data-pref-budget="${o.v}"><span class="pref-option-icon">${o.icon}</span><span class="pref-option-label">${o.label}</span></div>`).join('');
+
   showModal(`
     <div class="modal">
       <div class="modal-header">
@@ -609,17 +679,58 @@ function showSettings() {
         <button class="modal-close" data-action="close-modal">✕</button>
       </div>
       <div class="modal-body">
-        <div class="form-group">
-          <div class="form-label">Claude API Key</div>
+
+        <div style="border-bottom:1px solid var(--gray-100);padding-bottom:16px">
+          <div class="pref-section-label">🎯 My Travel Interests</div>
+          <div class="pref-section-sub">AI suggestions will prioritise these types of activities</div>
+          <div class="pref-pills" id="pref-pills">${pillsHtml}</div>
+        </div>
+
+        <div style="border-bottom:1px solid var(--gray-100);padding-bottom:16px">
+          <div class="pref-section-label">🏃 Travel Pace</div>
+          <div class="pref-options" id="pref-pace">${paceHtml}</div>
+        </div>
+
+        <div style="border-bottom:1px solid var(--gray-100);padding-bottom:16px">
+          <div class="pref-section-label">💰 Budget Style</div>
+          <div class="pref-options" id="pref-budget">${budgetHtml}</div>
+        </div>
+
+        <div>
+          <div class="pref-section-label">🔑 Claude API Key</div>
           <input class="form-input" id="inp-apikey" type="password" placeholder="sk-ant-..." value="${S.apiKey}">
           <div class="api-hint">Required for ✨ AI Suggest. Stored locally only. Get one at <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a></div>
         </div>
+
       </div>
       <div class="modal-footer">
         <button class="btn btn-secondary" data-action="close-modal">Cancel</button>
-        <button class="btn btn-primary" data-action="save-settings">Save</button>
+        <button class="btn btn-primary" data-action="save-settings">Save Preferences</button>
       </div>
     </div>`);
+
+  // Interest pill toggles
+  document.getElementById('pref-pills').addEventListener('click', e => {
+    const pill = e.target.closest('[data-pref-interest]');
+    if (!pill) return;
+    pill.classList.toggle('active');
+  });
+
+  // Pace single-select
+  document.getElementById('pref-pace').addEventListener('click', e => {
+    const opt = e.target.closest('[data-pref-pace]');
+    if (!opt) return;
+    document.querySelectorAll('[data-pref-pace]').forEach(el => el.classList.remove('active'));
+    opt.classList.add('active');
+  });
+
+  // Budget single-select
+  document.getElementById('pref-budget').addEventListener('click', e => {
+    const opt = e.target.closest('[data-pref-budget]');
+    if (!opt) return;
+    document.querySelectorAll('[data-pref-budget]').forEach(el => el.classList.remove('active'));
+    opt.classList.add('active');
+  });
 }
 
 async function showAISuggest(tripId, dayDate) {
@@ -628,13 +739,21 @@ async function showAISuggest(tripId, dayDate) {
   const days = getDays(trip);
   const dayNum = days.indexOf(dayDate) + 1;
 
+  const prefsBadge = hasPrefs() ? `<span class="prefs-set-badge">✓ Personalised</span>` : '';
+  const prefsNudge = !hasPrefs()
+    ? `<div class="prefs-nudge" data-action="open-settings-from-ai">
+        💡 <span>Set your travel preferences in <strong>Settings</strong> for suggestions tailored to you</span>
+       </div>`
+    : '';
+
   showModal(`
     <div class="modal">
       <div class="modal-header">
-        <div class="modal-title">✨ AI Day Planner</div>
+        <div class="modal-title">✨ AI Day Planner ${prefsBadge}</div>
         <button class="modal-close" data-action="close-modal">✕</button>
       </div>
       <div class="modal-body" id="ai-body">
+        ${prefsNudge}
         <div class="loading-state">
           <div class="spinner"></div>
           <div class="loading-text">Planning your day in ${trip.destination}…</div>
@@ -657,12 +776,20 @@ async function showAISuggest(tripId, dayDate) {
     ? `Already planned: ${existing.map(a => a.title).join(', ')}.`
     : 'Nothing planned for this day yet.';
 
-  const prompt = `You are an expert travel planner. Suggest exactly 5 activities for day ${dayNum} of ${days.length} of a trip to ${trip.destination}.
+  const prefsText = prefsToPromptText();
+  const prefsSection = prefsText
+    ? `\nMy personal travel preferences — tailor ALL suggestions heavily toward these:\n${prefsText}\n`
+    : '';
+
+  const prompt = `You are an expert travel planner creating a personalised itinerary. Suggest exactly 5 activities for day ${dayNum} of ${days.length} of a trip to ${trip.destination}.
 
 ${existingStr}
 Date: ${fmtFull(dayDate)}
-
-Suggest a balanced, realistic day (consider travel time between places). Mix meal times, sightseeing, and local experiences. Do NOT duplicate already-planned activities.
+${prefsSection}
+Guidelines:
+- Suggest a realistic day that respects travel time between places
+- Do NOT duplicate already-planned activities
+- If preferences are provided, weight suggestions heavily toward those interests, pace, and budget${prefsText ? '\n- Avoid suggesting activities that clearly conflict with the stated preferences' : ''}
 
 Respond with ONLY valid JSON (no markdown, no explanation):
 {"suggestions":[{"time":"09:00","title":"Short specific name","location":"Specific place name","notes":"One useful sentence","category":"food|activity|transport|accommodation|other"}]}`;
@@ -857,6 +984,15 @@ function handleModalClick(e) {
   else if (action === 'save-settings') {
     S.apiKey = document.getElementById('inp-apikey').value.trim();
     localStorage.setItem('wandr_api_key', S.apiKey);
+    // Save interests
+    S.prefs.interests = [...document.querySelectorAll('[data-pref-interest].active')].map(el => el.dataset.prefInterest);
+    // Save pace
+    const activeP = document.querySelector('[data-pref-pace].active');
+    S.prefs.pace = activeP ? activeP.dataset.prefPace : '';
+    // Save budget
+    const activeB = document.querySelector('[data-pref-budget].active');
+    S.prefs.budget = activeB ? activeB.dataset.prefBudget : '';
+    localStorage.setItem('wandr_prefs', JSON.stringify(S.prefs));
     closeModal();
   }
 }
