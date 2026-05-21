@@ -216,6 +216,51 @@ input, textarea, select { font-family: inherit; }
 .prefs-nudge { background: var(--amber-light); border: 1px solid #FDE68A; border-radius: 8px; padding: 10px 14px; font-size: 13px; color: #92400E; display: flex; align-items: center; gap: 8px; margin-bottom: 4px; cursor: pointer; }
 .prefs-nudge:hover { background: #FDE68A; }
 
+/* Enhanced suggestion cards */
+.suggestion-why { background: #F0F9FF; border-radius: 6px; padding: 8px 10px; margin-top: 8px; font-size: 12px; color: #075985; }
+.suggestion-why-label { font-weight: 700; display: block; margin-bottom: 2px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }
+.suggestion-protip { background: var(--amber-light); border-radius: 6px; padding: 8px 10px; margin-top: 6px; font-size: 12px; color: #92400E; }
+.suggestion-protip-label { font-weight: 700; display: block; margin-bottom: 2px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }
+.suggestion-meta-row { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+.smeta { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; font-weight: 500; background: var(--gray-100); color: var(--gray-600); padding: 3px 8px; border-radius: 10px; }
+
+/* Chat */
+.chat-modal { background: white; border-radius: 16px 16px 0 0; width: 100%; max-width: 500px; height: 88vh; display: flex; flex-direction: column; box-shadow: var(--shadow-lg); overflow: hidden; }
+@media (min-width: 560px) { .chat-modal { border-radius: 16px; height: 620px; } }
+.chat-header { padding: 14px 16px; border-bottom: 1px solid var(--gray-200); flex-shrink: 0; display: flex; align-items: center; gap: 12px; background: white; }
+.chat-avatar { width: 40px; height: 40px; background: linear-gradient(135deg, #0EA5E9, #6366F1); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
+.chat-agent-name { font-size: 15px; font-weight: 700; }
+.chat-agent-sub { font-size: 12px; color: var(--gray-400); margin-top: 1px; }
+.chat-online { display: inline-block; width: 8px; height: 8px; background: var(--green); border-radius: 50%; margin-right: 4px; }
+.chat-messages { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; background: var(--gray-50); }
+.chat-msg { max-width: 86%; display: flex; flex-direction: column; }
+.chat-msg-agent { align-self: flex-start; }
+.chat-msg-user  { align-self: flex-end; }
+.chat-bubble { padding: 11px 15px; border-radius: 18px; font-size: 14px; line-height: 1.55; }
+.chat-msg-agent .chat-bubble { background: white; color: var(--gray-900); border-bottom-left-radius: 4px; box-shadow: var(--shadow); }
+.chat-msg-user  .chat-bubble { background: var(--blue); color: white; border-bottom-right-radius: 4px; }
+.chat-time { font-size: 11px; color: var(--gray-400); margin-top: 3px; padding: 0 4px; }
+.chat-msg-user .chat-time { align-self: flex-end; }
+.chat-quick-wrap { padding: 10px 14px 4px; flex-shrink: 0; border-top: 1px solid var(--gray-100); background: white; }
+.chat-quick-label { font-size: 11px; font-weight: 600; color: var(--gray-400); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
+.chat-quick-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+.chat-quick-pill { background: white; border: 1.5px solid var(--gray-200); border-radius: 16px; padding: 6px 13px; font-size: 12px; font-weight: 500; color: var(--gray-700); cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+.chat-quick-pill:hover { border-color: var(--blue); color: var(--blue); background: var(--blue-light); }
+.chat-input-row { padding: 12px 14px; border-top: 1px solid var(--gray-200); display: flex; gap: 8px; align-items: flex-end; flex-shrink: 0; background: white; }
+.chat-input { flex: 1; border: 1.5px solid var(--gray-200); border-radius: 20px; padding: 10px 16px; font-size: 14px; outline: none; font-family: inherit; resize: none; max-height: 100px; transition: border-color 0.15s; line-height: 1.4; }
+.chat-input:focus { border-color: var(--blue); }
+.chat-send { width: 40px; height: 40px; background: var(--blue); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 18px; cursor: pointer; flex-shrink: 0; transition: background 0.15s; border: none; }
+.chat-send:hover { background: var(--blue-dark); }
+.chat-send:disabled { background: var(--gray-200); cursor: not-allowed; }
+.typing-dot { width: 7px; height: 7px; background: var(--gray-400); border-radius: 50%; display: inline-block; margin: 0 2px; animation: tdot 1.2s infinite; }
+.typing-dot:nth-child(2) { animation-delay: 0.2s; }
+.typing-dot:nth-child(3) { animation-delay: 0.4s; }
+@keyframes tdot { 0%,60%,100% { transform: translateY(0); opacity:.4 } 30% { transform: translateY(-5px); opacity:1 } }
+
+/* Ask Agent FAB in planner */
+.agent-fab { position: fixed; bottom: 24px; left: 24px; display: flex; align-items: center; gap: 8px; background: linear-gradient(135deg, #0EA5E9, #6366F1); color: white; border-radius: 28px; padding: 12px 18px; font-size: 14px; font-weight: 600; box-shadow: 0 4px 16px rgba(99,102,241,0.4); cursor: pointer; z-index: 50; transition: all 0.15s; border: none; }
+.agent-fab:hover { opacity: 0.92; transform: translateY(-1px); }
+
 /* Gradient card backgrounds */
 .grad-0 { background: linear-gradient(135deg, #0EA5E9, #6366F1); }
 .grad-1 { background: linear-gradient(135deg, #F59E0B, #EF4444); }
@@ -473,6 +518,7 @@ function renderPlanner() {
         <div class="activities-list">${actsHtml}</div>
       </div>
     </div>
+    <button class="agent-fab" data-action="ai-chat" data-trip="${trip.id}">💬 Ask your Agent</button>
     ${isActive ? `<div style="position:fixed;bottom:24px;right:24px;z-index:50"><button class="btn btn-amber" data-action="go-today" data-trip="${trip.id}">📍 Today's View</button></div>` : ''}`;
 }
 
@@ -544,6 +590,7 @@ function renderToday() {
     <div class="today-subnav"><div class="container"><div class="today-subnav-inner">
       <button class="btn btn-ghost btn-sm" data-action="go-home">← Home</button>
       <button class="btn btn-secondary btn-sm" data-action="open-planner" data-trip="${trip.id}">📋 Full Itinerary</button>
+      <button class="btn btn-sm" style="background:linear-gradient(135deg,#0EA5E9,#6366F1);color:white;margin-left:auto" data-action="ai-chat" data-trip="${trip.id}">💬 Ask Agent</button>
     </div></div></div>
     <div class="container"><div class="timeline">${timelineHtml}</div></div>`;
 }
@@ -733,6 +780,168 @@ function showSettings() {
   });
 }
 
+// ─── AI CHAT ──────────────────────────────────────────────────
+const CHAT = { history: [], tripId: null };
+
+const QUICK_PROMPTS = [
+  "What shouldn't I miss?",
+  "Hidden gems only locals know?",
+  "Best food spots for my taste?",
+  "How should I get around?",
+  "Any tips for saving money?",
+  "What should I pack?"
+];
+
+function agentSystemPrompt(trip) {
+  const prefsText = prefsToPromptText();
+  const days = getDays(trip);
+  return `You are the world's finest personal travel agent — an expert with encyclopedic, street-level knowledge of destinations worldwide. You're helping plan a ${days.length}-day trip to ${trip.destination} (${fmtShort(trip.startDate)} – ${fmtShort(trip.endDate)}).
+${prefsText ? `\nTraveler preferences:\n${prefsText}\n` : ''}
+You know ${trip.destination} like a well-travelled local — the best neighborhoods, authentic restaurants, hidden gems, transport hacks, cultural nuances, and insider secrets tourists rarely discover. Give specific advice (real place names, addresses, times) — never generic platitudes. Speak like a brilliant, enthusiastic friend, not a brochure. Keep replies concise: 2-4 sentences or a tight list. Use light formatting where it helps readability.`;
+}
+
+function chatMsgHtml(text, role) {
+  const time = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  const safe = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+  return `<div class="chat-msg chat-msg-${role}">
+    <div class="chat-bubble">${safe}</div>
+    <div class="chat-time">${role === 'agent' ? '✈️ ' : ''}${time}</div>
+  </div>`;
+}
+
+function typingHtml(id) {
+  return `<div class="chat-msg chat-msg-agent" id="${id}">
+    <div class="chat-bubble" style="padding:14px 18px">
+      <span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span>
+    </div>
+  </div>`;
+}
+
+async function callClaude(system, messages, maxTokens = 512) {
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'x-api-key': S.apiKey,
+      'anthropic-version': '2023-06-01',
+      'content-type': 'application/json',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: maxTokens, system, messages })
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error?.message || `API error ${res.status}`);
+  return data.content[0].text;
+}
+
+async function showAIChat(tripId) {
+  const trip = getTrip(tripId);
+  CHAT.tripId = tripId;
+  CHAT.history = [];
+
+  const quickHtml = QUICK_PROMPTS.map(q =>
+    `<button class="chat-quick-pill" data-quick="${q.replace(/"/g,'&quot;')}">${q}</button>`
+  ).join('');
+
+  const noKey = !S.apiKey;
+
+  document.getElementById('modal-root').innerHTML = `
+    <div class="modal-overlay" id="overlay">
+      <div class="chat-modal">
+        <div class="chat-header">
+          <div class="chat-avatar">✈️</div>
+          <div>
+            <div class="chat-agent-name">Your Travel Agent</div>
+            <div class="chat-agent-sub"><span class="chat-online"></span>Expert on ${trip.destination}</div>
+          </div>
+          <button class="modal-close" style="margin-left:auto" data-action="close-modal">✕</button>
+        </div>
+        <div class="chat-messages" id="chat-msgs">${typingHtml('greeting')}</div>
+        <div class="chat-quick-wrap" id="quick-wrap">
+          <div class="chat-quick-label">Quick questions</div>
+          <div class="chat-quick-pills">${quickHtml}</div>
+        </div>
+        <div class="chat-input-row">
+          <textarea class="chat-input" id="chat-input" rows="1" placeholder="Ask anything about ${trip.destination}…" ${noKey ? 'disabled' : ''}></textarea>
+          <button class="chat-send" id="chat-send" ${noKey ? 'disabled' : ''}>↑</button>
+        </div>
+      </div>
+    </div>`;
+
+  const overlay = document.getElementById('overlay');
+  overlay.addEventListener('click', e => { if (e.target.id === 'overlay') closeModal(); });
+  document.getElementById('modal-root').addEventListener('click', handleModalClick);
+
+  // Auto-resize textarea
+  const inp = document.getElementById('chat-input');
+  inp.addEventListener('input', () => { inp.style.height = 'auto'; inp.style.height = Math.min(inp.scrollHeight, 100) + 'px'; });
+  inp.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); doSendChat(trip); } });
+  document.getElementById('chat-send').addEventListener('click', () => doSendChat(trip));
+
+  // Quick prompts
+  document.getElementById('quick-wrap').addEventListener('click', e => {
+    const pill = e.target.closest('[data-quick]');
+    if (!pill) return;
+    inp.value = pill.dataset.quick;
+    document.getElementById('quick-wrap').style.display = 'none';
+    doSendChat(trip);
+  });
+
+  // Greeting
+  if (noKey) {
+    document.getElementById('greeting').outerHTML = chatMsgHtml(`👋 Hi! I'm your personal travel agent for ${trip.destination}. To chat with me, add your Claude API key in Settings.`, 'agent');
+    return;
+  }
+  try {
+    const greeting = await callClaude(agentSystemPrompt(trip), [{
+      role: 'user',
+      content: `Greet me warmly as my personal travel agent for ${trip.destination}. Mention one surprising or exciting thing I might not know about the destination. Keep it to 2-3 sentences max.`
+    }]);
+    CHAT.history.push({ role: 'assistant', content: greeting });
+    document.getElementById('greeting').outerHTML = chatMsgHtml(greeting, 'agent');
+    scrollChat();
+  } catch(e) {
+    document.getElementById('greeting').outerHTML = chatMsgHtml('👋 Ready to help plan your trip! What would you like to know?', 'agent');
+  }
+}
+
+function scrollChat() {
+  const el = document.getElementById('chat-msgs');
+  if (el) el.scrollTop = el.scrollHeight;
+}
+
+async function doSendChat(trip) {
+  const inp = document.getElementById('chat-input');
+  const msg = inp.value.trim();
+  if (!msg) return;
+  inp.value = ''; inp.style.height = 'auto';
+
+  document.getElementById('quick-wrap').style.display = 'none';
+  CHAT.history.push({ role: 'user', content: msg });
+
+  const msgs = document.getElementById('chat-msgs');
+  msgs.insertAdjacentHTML('beforeend', chatMsgHtml(msg, 'user'));
+  const tid = 'typing-' + Date.now();
+  msgs.insertAdjacentHTML('beforeend', typingHtml(tid));
+  scrollChat();
+
+  const sendBtn = document.getElementById('chat-send');
+  if (sendBtn) sendBtn.disabled = true;
+
+  try {
+    const reply = await callClaude(agentSystemPrompt(trip), CHAT.history);
+    CHAT.history.push({ role: 'assistant', content: reply });
+    const typingEl = document.getElementById(tid);
+    if (typingEl) typingEl.outerHTML = chatMsgHtml(reply, 'agent');
+  } catch(e) {
+    const typingEl = document.getElementById(tid);
+    if (typingEl) typingEl.outerHTML = chatMsgHtml('Sorry, something went wrong — please try again.', 'agent');
+  } finally {
+    if (sendBtn) sendBtn.disabled = false;
+    scrollChat();
+    document.getElementById('chat-input')?.focus();
+  }
+}
+
 async function showAISuggest(tripId, dayDate) {
   const trip = getTrip(tripId);
   const existing = trip.days?.find(d => d.date === dayDate)?.activities || [];
@@ -756,7 +965,7 @@ async function showAISuggest(tripId, dayDate) {
         ${prefsNudge}
         <div class="loading-state">
           <div class="spinner"></div>
-          <div class="loading-text">Planning your day in ${trip.destination}…</div>
+          <div class="loading-text">${loadingText}</div>
         </div>
       </div>
     </div>`);
@@ -778,21 +987,42 @@ async function showAISuggest(tripId, dayDate) {
 
   const prefsText = prefsToPromptText();
   const prefsSection = prefsText
-    ? `\nMy personal travel preferences — tailor ALL suggestions heavily toward these:\n${prefsText}\n`
+    ? `\nTraveler's personal preferences — weight ALL suggestions heavily toward these:\n${prefsText}\n`
     : '';
 
-  const prompt = `You are an expert travel planner creating a personalised itinerary. Suggest exactly 5 activities for day ${dayNum} of ${days.length} of a trip to ${trip.destination}.
+  const loadingPhrases = [
+    `Consulting my ${trip.destination} contacts…`,
+    `Unlocking the best of ${trip.destination}…`,
+    `Finding experiences you'll actually love…`,
+    `Tapping into local knowledge…`,
+    `Curating your perfect day…`
+  ];
+  const loadingText = loadingPhrases[Math.floor(Math.random() * loadingPhrases.length)];
+
+  const prompt = `You are the world's finest travel agent with deep, street-level expertise in ${trip.destination}. Design a brilliant, personalised Day ${dayNum} of ${days.length} itinerary.
 
 ${existingStr}
 Date: ${fmtFull(dayDate)}
 ${prefsSection}
-Guidelines:
-- Suggest a realistic day that respects travel time between places
-- Do NOT duplicate already-planned activities
-- If preferences are provided, weight suggestions heavily toward those interests, pace, and budget${prefsText ? '\n- Avoid suggesting activities that clearly conflict with the stated preferences' : ''}
+Requirements:
+- 5 suggestions total — include breakfast, lunch, and dinner plus 2 other experiences
+- Plan the day in logical geographic order to minimise unnecessary travel
+- Every suggestion must be a real, specific place (not generic descriptions)
+- Lean toward local, authentic spots over tourist traps${prefsText ? '\n- Prioritise the traveler\'s stated preferences above all else' : ''}
+- Include the kind of insider detail only a seasoned local would know
 
 Respond with ONLY valid JSON (no markdown, no explanation):
-{"suggestions":[{"time":"09:00","title":"Short specific name","location":"Specific place name","notes":"One useful sentence","category":"food|activity|transport|accommodation|other"}]}`;
+{"suggestions":[{
+  "time":"09:00",
+  "title":"Specific place or experience name",
+  "location":"Neighborhood or address",
+  "notes":"1-2 sentences: what makes this special",
+  "category":"food|activity|transport|accommodation|other",
+  "why":"Why this suits THIS traveler specifically (1 sentence, be personal)",
+  "pro_tip":"One insider tip a local would give (book ahead / best dish / hidden entrance / optimal time)",
+  "duration":"~X hours",
+  "price":"Free|€|€€|€€€"
+}]}`;
 
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -828,7 +1058,13 @@ Respond with ONLY valid JSON (no markdown, no explanation):
           <div class="suggestion-time">${s.time}</div>
         </div>
         <div class="suggestion-loc">📍 ${s.location}</div>
-        <div class="suggestion-notes">${s.notes}</div>
+        ${s.notes ? `<div class="suggestion-notes" style="padding-left:28px;margin-top:4px">${s.notes}</div>` : ''}
+        ${s.why ? `<div class="suggestion-why"><span class="suggestion-why-label">✨ Why for you</span>${s.why}</div>` : ''}
+        ${s.pro_tip ? `<div class="suggestion-protip"><span class="suggestion-protip-label">💡 Pro tip</span>${s.pro_tip}</div>` : ''}
+        ${(s.duration || s.price) ? `<div class="suggestion-meta-row">
+          ${s.duration ? `<span class="smeta">⏱ ${s.duration}</span>` : ''}
+          ${s.price ? `<span class="smeta">💳 ${s.price}</span>` : ''}
+        </div>` : ''}
       </div>`).join('');
 
     document.querySelector('.modal').insertAdjacentHTML('beforeend', `
@@ -957,6 +1193,7 @@ function handleClick(e) {
   else if (action === 'settings') showSettings();
   else if (action === 'switch-day') { S.dayIdx = parseInt(el.dataset.day); render(); }
   else if (action === 'ai-suggest') showAISuggest(trip, day);
+  else if (action === 'ai-chat') showAIChat(trip);
   else if (action === 'add-activity') showActivityModal(trip, day);
   else if (action === 'edit-trip') showNewTripModal(getTrip(trip));
   else if (action === 'toggle-confirm') { e.stopPropagation(); toggleConfirm(trip, day, act); }
