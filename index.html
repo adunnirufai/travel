@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wandr — Personal Travel Planner</title>
+<style>
+:root {
+  --blue: #0EA5E9;
+  --blue-dark: #0284C7;
+  --blue-light: #E0F2FE;
+  --amber: #F59E0B;
+  --amber-light: #FEF3C7;
+  --green: #10B981;
+  --red: #EF4444;
+  --gray-50: #F8FAFC;
+  --gray-100: #F1F5F9;
+  --gray-200: #E2E8F0;
+  --gray-400: #94A3B8;
+  --gray-600: #475569;
+  --gray-800: #1E293B;
+  --gray-900: #0F172A;
+  --radius: 12px;
+  --shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
+  --shadow-md: 0 4px 6px rgba(0,0,0,0.07), 0 2px 4px rgba(0,0,0,0.06);
+  --shadow-lg: 0 10px 15px rgba(0,0,0,0.1), 0 4px 6px rgba(0,0,0,0.05);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--gray-50); color: var(--gray-900); min-height: 100vh; }
+button { cursor: pointer; border: none; background: none; font-family: inherit; }
+input, textarea, select { font-family: inherit; }
+
+.container { max-width: 700px; margin: 0 auto; padding: 0 16px; }
+
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 10px 18px; border-radius: 8px; font-size: 14px; font-weight: 500; transition: all 0.15s; }
+.btn-primary { background: var(--blue); color: white; }
+.btn-primary:hover { background: var(--blue-dark); }
+.btn-secondary { background: var(--gray-100); color: var(--gray-800); }
+.btn-secondary:hover { background: var(--gray-200); }
+.btn-ghost { color: var(--gray-600); padding: 8px 12px; }
+.btn-ghost:hover { background: var(--gray-100); color: var(--gray-900); }
+.btn-sm { padding: 6px 12px; font-size: 13px; }
+.btn-danger { background: #FEE2E2; color: var(--red); }
+.btn-danger:hover { background: #FECACA; }
+.btn-amber { background: var(--amber); color: white; }
+.btn-amber:hover { background: #D97706; }
+
+.form-group { display: flex; flex-direction: column; gap: 6px; }
+.form-label { font-size: 13px; font-weight: 500; color: var(--gray-600); }
+.form-input { padding: 10px 12px; border: 1.5px solid var(--gray-200); border-radius: 8px; font-size: 14px; color: var(--gray-900); background: white; transition: border-color 0.15s; outline: none; width: 100%; }
+.form-input:focus { border-color: var(--blue); }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+/* Top Nav */
+.topnav { background: white; border-bottom: 1px solid var(--gray-200); position: sticky; top: 0; z-index: 100; }
+.topnav-inner { display: flex; align-items: center; justify-content: space-between; height: 56px; }
+.topnav-logo { font-size: 18px; font-weight: 700; color: var(--blue); }
+
+/* Home */
+.home-header { padding: 32px 0 20px; }
+.home-title { font-size: 28px; font-weight: 700; }
+.home-subtitle { font-size: 15px; color: var(--gray-600); margin-top: 4px; }
+.section-title { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--gray-400); margin-bottom: 10px; }
+.trips-grid { display: grid; gap: 12px; margin-bottom: 28px; }
+
+.trip-card { background: white; border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; cursor: pointer; transition: box-shadow 0.15s, transform 0.15s; }
+.trip-card:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
+.trip-card-banner { height: 80px; display: flex; align-items: center; justify-content: center; font-size: 40px; }
+.trip-card-body { padding: 14px 16px; }
+.trip-card-name { font-size: 16px; font-weight: 600; }
+.trip-card-dest { font-size: 13px; color: var(--gray-600); margin-top: 2px; }
+.trip-card-meta { display: flex; align-items: center; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+.trip-badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 20px; font-size: 12px; font-weight: 500; }
+.badge-active { background: #DCFCE7; color: #166534; }
+.badge-upcoming { background: var(--blue-light); color: #075985; }
+.badge-past { background: var(--gray-100); color: var(--gray-600); }
+.trip-card-dates { font-size: 12px; color: var(--gray-400); }
+
+.active-hero { background: linear-gradient(135deg, #0EA5E9 0%, #6366F1 100%); border-radius: var(--radius); padding: 24px; color: white; margin-bottom: 28px; cursor: pointer; transition: opacity 0.15s; }
+.active-hero:hover { opacity: 0.93; }
+.active-hero-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; opacity: 0.8; }
+.active-hero-name { font-size: 24px; font-weight: 700; margin-top: 4px; }
+.active-hero-dest { font-size: 14px; opacity: 0.85; margin-top: 2px; }
+.active-hero-row { display: flex; align-items: center; justify-content: space-between; margin-top: 20px; }
+.active-hero-cta { background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.3); padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; }
+
+.fab { position: fixed; bottom: 24px; right: 24px; width: 56px; height: 56px; background: var(--blue); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(14,165,233,0.4); font-size: 26px; cursor: pointer; transition: all 0.15s; z-index: 50; line-height: 1; }
+.fab:hover { background: var(--blue-dark); transform: scale(1.05); }
+
+/* Planner */
+.planner-header { background: white; border-bottom: 1px solid var(--gray-200); position: sticky; top: 0; z-index: 100; }
+.planner-header-inner { padding: 12px 0 0; }
+.planner-nav { display: flex; align-items: center; gap: 10px; }
+.planner-info { flex: 1; min-width: 0; }
+.planner-title { font-size: 17px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.planner-dest { font-size: 12px; color: var(--gray-600); margin-top: 1px; }
+
+.day-tabs-wrap { overflow-x: auto; margin-top: 12px; scrollbar-width: none; }
+.day-tabs-wrap::-webkit-scrollbar { display: none; }
+.day-tabs { display: flex; }
+.day-tab { padding: 10px 14px; font-size: 13px; font-weight: 500; color: var(--gray-600); border-bottom: 2px solid transparent; white-space: nowrap; cursor: pointer; transition: all 0.15s; flex-shrink: 0; position: relative; }
+.day-tab:hover { color: var(--gray-900); }
+.day-tab.active { color: var(--blue); border-bottom-color: var(--blue); }
+.day-tab-date { font-size: 11px; opacity: 0.65; display: block; margin-top: 1px; }
+.today-dot { width: 5px; height: 5px; background: var(--amber); border-radius: 50%; position: absolute; top: 7px; right: 6px; }
+
+.planner-content { padding: 20px 0 100px; }
+.day-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 16px; gap: 12px; }
+.day-title { font-size: 15px; font-weight: 600; }
+.day-subtitle { font-size: 12px; color: var(--gray-600); margin-top: 2px; }
+.day-actions { display: flex; gap: 8px; flex-shrink: 0; }
+
+.activities-list { display: flex; flex-direction: column; gap: 8px; }
+.activity-item { background: white; border-radius: 10px; padding: 13px 14px; display: flex; align-items: flex-start; gap: 12px; box-shadow: var(--shadow); cursor: pointer; transition: box-shadow 0.15s; }
+.activity-item:hover { box-shadow: var(--shadow-md); }
+.activity-time { font-size: 12px; font-weight: 600; color: var(--gray-400); min-width: 40px; padding-top: 2px; }
+.activity-icon { font-size: 20px; flex-shrink: 0; }
+.activity-body { flex: 1; min-width: 0; }
+.activity-title { font-size: 14px; font-weight: 600; }
+.activity-location { font-size: 12px; color: var(--gray-600); margin-top: 3px; }
+.activity-notes { font-size: 12px; color: var(--gray-400); margin-top: 3px; }
+.confirm-btn { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--gray-200); flex-shrink: 0; margin-top: 2px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; transition: all 0.15s; }
+.confirm-btn.done { background: var(--green); border-color: var(--green); color: white; }
+.confirm-btn:hover { border-color: var(--green); }
+
+.empty-day { text-align: center; padding: 48px 24px; color: var(--gray-400); }
+.empty-day-icon { font-size: 40px; margin-bottom: 12px; }
+.empty-day-text { font-size: 15px; font-weight: 500; }
+.empty-day-sub { font-size: 13px; margin-top: 4px; }
+
+/* Today View */
+.today-hero { background: linear-gradient(135deg, #0EA5E9 0%, #6366F1 100%); padding: 28px 0 20px; color: white; }
+.today-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; opacity: 0.8; }
+.today-date { font-size: 26px; font-weight: 700; margin-top: 4px; }
+.today-dest { font-size: 14px; opacity: 0.85; margin-top: 3px; }
+.today-day-badge { display: inline-block; background: rgba(255,255,255,0.2); padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 500; margin-top: 12px; }
+.today-subnav { background: white; border-bottom: 1px solid var(--gray-200); }
+.today-subnav-inner { display: flex; gap: 8px; padding: 10px 0; }
+
+.timeline { padding: 20px 0 80px; }
+.timeline-item { display: flex; gap: 14px; padding-bottom: 0; margin-bottom: 12px; }
+.timeline-left { display: flex; flex-direction: column; align-items: center; width: 52px; flex-shrink: 0; }
+.timeline-time { font-size: 12px; font-weight: 600; color: var(--gray-400); text-align: center; }
+.timeline-connector { display: flex; flex-direction: column; align-items: center; flex: 1; }
+.timeline-dot { width: 12px; height: 12px; border-radius: 50%; background: var(--gray-200); margin: 6px 0 0; flex-shrink: 0; }
+.timeline-dot.current { background: var(--amber); width: 16px; height: 16px; box-shadow: 0 0 0 4px var(--amber-light); }
+.timeline-dot.done { background: var(--green); }
+.timeline-line { width: 2px; background: var(--gray-200); flex: 1; min-height: 16px; margin-top: 4px; }
+.timeline-card { flex: 1; background: white; border-radius: 10px; padding: 14px 16px; box-shadow: var(--shadow); margin-bottom: 0; }
+.timeline-card.current-card { border: 2px solid var(--amber); box-shadow: 0 0 0 4px var(--amber-light), var(--shadow); }
+.timeline-card.done-card { opacity: 0.55; }
+.next-up-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--amber); margin-bottom: 6px; }
+.timeline-card-icon { font-size: 22px; margin-bottom: 6px; }
+.timeline-card-title { font-size: 15px; font-weight: 600; }
+.timeline-card-loc { font-size: 13px; color: var(--gray-600); margin-top: 4px; }
+.timeline-card-notes { font-size: 12px; color: var(--gray-400); margin-top: 4px; }
+
+.today-empty { text-align: center; padding: 64px 24px; }
+.today-empty-icon { font-size: 48px; margin-bottom: 16px; }
+
+/* Modal */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 200; display: flex; align-items: flex-end; justify-content: center; padding: 0 0 0; backdrop-filter: blur(2px); }
+@media (min-width: 560px) { .modal-overlay { align-items: center; padding: 16px; } }
+.modal { background: white; border-radius: 16px 16px 0 0; width: 100%; max-width: 500px; max-height: 92vh; overflow-y: auto; box-shadow: var(--shadow-lg); }
+@media (min-width: 560px) { .modal { border-radius: 16px; } }
+.modal-header { display: flex; align-items: center; justify-content: space-between; padding: 20px 20px 0; }
+.modal-title { font-size: 17px; font-weight: 700; }
+.modal-close { width: 32px; height: 32px; border-radius: 50%; background: var(--gray-100); color: var(--gray-600); display: flex; align-items: center; justify-content: center; font-size: 16px; cursor: pointer; flex-shrink: 0; }
+.modal-close:hover { background: var(--gray-200); }
+.modal-body { padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+.modal-footer { padding: 0 20px 20px; display: flex; gap: 10px; justify-content: flex-end; align-items: center; }
+
+.emoji-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.emoji-btn { font-size: 22px; width: 42px; height: 42px; border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; background: var(--gray-100); transition: all 0.15s; border: 2px solid transparent; }
+.emoji-btn:hover { background: var(--blue-light); }
+.emoji-btn.selected { background: var(--blue-light); border-color: var(--blue); }
+
+/* AI Suggestions */
+.suggestion-card { border: 2px solid var(--gray-200); border-radius: 10px; padding: 12px 14px; cursor: pointer; transition: all 0.15s; margin-bottom: 8px; }
+.suggestion-card:last-child { margin-bottom: 0; }
+.suggestion-card:hover { border-color: var(--blue); background: #F0F9FF; }
+.suggestion-card.selected { border-color: var(--blue); background: #E0F2FE; }
+.suggestion-row { display: flex; align-items: center; gap: 8px; }
+.suggestion-check { width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--gray-300); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; }
+.suggestion-card.selected .suggestion-check { background: var(--blue); border-color: var(--blue); color: white; }
+.suggestion-title { font-size: 14px; font-weight: 600; flex: 1; }
+.suggestion-time { font-size: 12px; color: var(--gray-400); }
+.suggestion-loc { font-size: 12px; color: var(--gray-600); margin-top: 4px; padding-left: 28px; }
+.suggestion-notes { font-size: 12px; color: var(--gray-400); margin-top: 2px; padding-left: 28px; }
+.suggestion-icon { font-size: 18px; }
+
+.loading-state { text-align: center; padding: 36px 24px; }
+.spinner { width: 32px; height: 32px; border: 3px solid var(--gray-200); border-top-color: var(--blue); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 16px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-text { font-size: 14px; color: var(--gray-600); }
+
+.api-hint { font-size: 12px; color: var(--gray-400); margin-top: 4px; }
+.api-hint a { color: var(--blue); }
+
+/* Gradient card backgrounds */
+.grad-0 { background: linear-gradient(135deg, #0EA5E9, #6366F1); }
+.grad-1 { background: linear-gradient(135deg, #F59E0B, #EF4444); }
+.grad-2 { background: linear-gradient(135deg, #10B981, #0EA5E9); }
+.grad-3 { background: linear-gradient(135deg, #8B5CF6, #EC4899); }
+.grad-4 { background: linear-gradient(135deg, #F97316, #EAB308); }
+.grad-5 { background: linear-gradient(135deg, #06B6D4, #10B981); }
+</style>
+</head>
+<body>
+
+<div id="app"></div>
+<div id="modal-root"></div>
+
+<script>
+// ─── STATE ───────────────────────────────────────────────────
+const S = {
+  trips: JSON.parse(localStorage.getItem('wandr_trips') || '[]'),
+  view: 'home',
+  tripId: null,
+  dayIdx: 0,
+  apiKey: localStorage.getItem('wandr_api_key') || ''
+};
+
+function save() { localStorage.setItem('wandr_trips', JSON.stringify(S.trips)); }
+function getTrip(id) { return S.trips.find(t => t.id === id); }
+function uid() { return Math.random().toString(36).slice(2) + Date.now().toString(36); }
+
+function todayStr() { return new Date().toISOString().split('T')[0]; }
+
+function tripStatus(trip) {
+  const t = todayStr();
+  if (trip.startDate <= t && t <= trip.endDate) return 'active';
+  if (trip.startDate > t) return 'upcoming';
+  return 'past';
+}
+
+function getDays(trip) {
+  const days = [];
+  const cur = new Date(trip.startDate + 'T12:00:00');
+  const last = new Date(trip.endDate + 'T12:00:00');
+  while (cur <= last) { days.push(cur.toISOString().split('T')[0]); cur.setDate(cur.getDate() + 1); }
+  return days;
+}
+
+function fmtShort(d) { return new Date(d + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); }
+function fmtFull(d) { return new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }); }
+
+function catIcon(c) {
+  return { food: '🍽️', transport: '🚗', accommodation: '🏨', activity: '🎯', other: '📌' }[c] || '📌';
+}
+
+function navigate(view, tripId = null, dayIdx = 0) {
+  S.view = view; S.tripId = tripId; S.dayIdx = dayIdx;
+  render(); window.scrollTo(0, 0);
+}
+
+// ─── RENDER DISPATCH ─────────────────────────────────────────
+function render() {
+  const app = document.getElementById('app');
+  if (S.view === 'home') app.innerHTML = renderHome();
+  else if (S.view === 'planner') app.innerHTML = renderPlanner();
+  else if (S.view === 'today') app.innerHTML = renderToday();
+  app.addEventListener('click', handleClick);
+}
+
+// ─── HOME ─────────────────────────────────────────────────────
+function renderHome() {
+  const active   = S.trips.filter(t => tripStatus(t) === 'active');
+  const upcoming = S.trips.filter(t => tripStatus(t) === 'upcoming').sort((a,b) => a.startDate.localeCompare(b.startDate));
+  const past     = S.trips.filter(t => tripStatus(t) === 'past').sort((a,b) => b.endDate.localeCompare(a.endDate));
+
+  let h = `
+    <nav class="topnav"><div class="container"><div class="topnav-inner">
+      <div class="topnav-logo">✈️ Wandr</div>
+      <button class="btn btn-ghost btn-sm" data-action="settings">⚙️ Settings</button>
+    </div></div></nav>
+    <div class="container">
+      <div class="home-header">
+        <div class="home-title">Your Trips</div>
+        <div class="home-subtitle">${S.trips.length === 0 ? 'Plan your first adventure' : `${S.trips.length} trip${S.trips.length !== 1 ? 's' : ''} planned`}</div>
+      </div>
+  `;
+
+  if (active.length) {
+    const t = active[0];
+    const days = getDays(t);
+    const dayNum = days.indexOf(todayStr()) + 1;
+    h += `
+      <div class="active-hero" data-action="go-today" data-trip="${t.id}">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
+          <div>
+            <div class="active-hero-label">🟢 Active now</div>
+            <div class="active-hero-name">${t.name}</div>
+            <div class="active-hero-dest">📍 ${t.destination}</div>
+          </div>
+          <div style="font-size:44px;line-height:1">${t.emoji}</div>
+        </div>
+        <div class="active-hero-row">
+          <div style="font-size:13px;opacity:0.8">Day ${dayNum} of ${days.length}</div>
+          <button class="active-hero-cta">Today's Plan →</button>
+        </div>
+      </div>
+    `;
+  }
+
+  if (upcoming.length) {
+    h += `<div class="section-title">Upcoming</div><div class="trips-grid">`;
+    upcoming.forEach(t => { h += tripCard(t, 'upcoming'); });
+    h += `</div>`;
+  }
+
+  if (past.length) {
+    h += `<div class="section-title">Past</div><div class="trips-grid">`;
+    past.forEach(t => { h += tripCard(t, 'past'); });
+    h += `</div>`;
+  }
+
+  if (!S.trips.length) h += `
+    <div style="text-align:center;padding:72px 24px">
+      <div style="font-size:60px;margin-bottom:16px">🗺️</div>
+      <div style="font-size:18px;font-weight:600;color:var(--gray-800)">No trips yet</div>
+      <div style="font-size:14px;color:var(--gray-400);margin-top:8px">Tap + to plan your first adventure</div>
+    </div>`;
+
+  h += `</div><button class="fab" data-action="new-trip">+</button>`;
+  return h;
+}
+
+function tripCard(t, status) {
+  const badges = {
+    active:   '<span class="trip-badge badge-active">🟢 Now</span>',
+    upcoming: '<span class="trip-badge badge-upcoming">🔵 Upcoming</span>',
+    past:     '<span class="trip-badge badge-past">✓ Past</span>'
+  };
+  return `
+    <div class="trip-card" data-action="open-trip" data-trip="${t.id}">
+      <div class="trip-card-banner grad-${t.gradIdx ?? 0}">${t.emoji}</div>
+      <div class="trip-card-body">
+        <div class="trip-card-name">${t.name}</div>
+        <div class="trip-card-dest">📍 ${t.destination}</div>
+        <div class="trip-card-meta">
+          ${badges[status]}
+          <span class="trip-card-dates">${fmtShort(t.startDate)} – ${fmtShort(t.endDate)}</span>
+        </div>
+      </div>
+    </div>`;
+}
+
+// ─── PLANNER ──────────────────────────────────────────────────
+function renderPlanner() {
+  const trip = getTrip(S.tripId);
+  if (!trip) return navigate('home');
+  const days = getDays(trip);
+  const today = todayStr();
+
+  const tabs = days.map((d, i) => {
+    const isToday = d === today;
+    const dt = new Date(d + 'T12:00:00');
+    const dayName = dt.toLocaleDateString('en-US', { weekday: 'short' });
+    const dayNum = dt.getDate();
+    return `<div class="day-tab ${i === S.dayIdx ? 'active' : ''}" data-action="switch-day" data-day="${i}">
+      ${isToday ? '<span class="today-dot"></span>' : ''}
+      Day ${i + 1}
+      <span class="day-tab-date">${dayName} ${dayNum}</span>
+    </div>`;
+  }).join('');
+
+  const curDate = days[S.dayIdx];
+  const dayData = trip.days?.find(d => d.date === curDate);
+  const acts = (dayData?.activities || []).slice().sort((a, b) => (a.time||'').localeCompare(b.time||''));
+
+  let actsHtml = acts.length ? acts.map(a => `
+    <div class="activity-item" data-action="edit-activity" data-trip="${trip.id}" data-day="${curDate}" data-act="${a.id}">
+      <div class="activity-time">${a.time || '--:--'}</div>
+      <div class="activity-icon">${catIcon(a.category)}</div>
+      <div class="activity-body">
+        <div class="activity-title">${a.title}</div>
+        ${a.location ? `<div class="activity-location">📍 ${a.location}</div>` : ''}
+        ${a.notes ? `<div class="activity-notes">${a.notes}</div>` : ''}
+      </div>
+      <div class="confirm-btn ${a.confirmed ? 'done' : ''}" data-action="toggle-confirm" data-trip="${trip.id}" data-day="${curDate}" data-act="${a.id}">
+        ${a.confirmed ? '✓' : ''}
+      </div>
+    </div>`).join('')
+    : `<div class="empty-day">
+        <div class="empty-day-icon">☀️</div>
+        <div class="empty-day-text">Nothing planned yet</div>
+        <div class="empty-day-sub">Add activities or let AI plan your day</div>
+      </div>`;
+
+  const isActive = tripStatus(trip) === 'active';
+
+  return `
+    <div class="planner-header">
+      <div class="container">
+        <div class="planner-header-inner">
+          <div class="planner-nav">
+            <button class="btn btn-ghost btn-sm" data-action="go-home">← Back</button>
+            <div class="planner-info">
+              <div class="planner-title">${trip.name}</div>
+              <div class="planner-dest">📍 ${trip.destination} · ${fmtShort(trip.startDate)} – ${fmtShort(trip.endDate)}</div>
+            </div>
+            <button class="btn btn-ghost btn-sm" data-action="edit-trip" data-trip="${trip.id}">···</button>
+          </div>
+          <div class="day-tabs-wrap"><div class="day-tabs">${tabs}</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="container">
+      <div class="planner-content">
+        <div class="day-header">
+          <div>
+            <div class="day-title">${fmtFull(curDate)}</div>
+            <div class="day-subtitle">${acts.length} activit${acts.length !== 1 ? 'ies' : 'y'}</div>
+          </div>
+          <div class="day-actions">
+            <button class="btn btn-secondary btn-sm" data-action="ai-suggest" data-trip="${trip.id}" data-day="${curDate}">✨ AI Suggest</button>
+            <button class="btn btn-primary btn-sm" data-action="add-activity" data-trip="${trip.id}" data-day="${curDate}">+ Add</button>
+          </div>
+        </div>
+        <div class="activities-list">${actsHtml}</div>
+      </div>
+    </div>
+    ${isActive ? `<div style="position:fixed;bottom:24px;right:24px;z-index:50"><button class="btn btn-amber" data-action="go-today" data-trip="${trip.id}">📍 Today's View</button></div>` : ''}`;
+}
+
+// ─── TODAY VIEW ───────────────────────────────────────────────
+function renderToday() {
+  const trip = getTrip(S.tripId);
+  if (!trip) return navigate('home');
+
+  const today = todayStr();
+  const dayData = trip.days?.find(d => d.date === today);
+  const acts = (dayData?.activities || []).slice().sort((a, b) => (a.time||'').localeCompare(b.time||''));
+  const days = getDays(trip);
+  const dayNum = days.indexOf(today) + 1;
+  const nowTime = new Date().toTimeString().slice(0, 5);
+  const dateLabel = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+
+  let nextIdx = -1;
+  for (let i = 0; i < acts.length; i++) {
+    if ((acts[i].time || '00:00') >= nowTime) { nextIdx = i; break; }
+  }
+
+  let timelineHtml;
+  if (!acts.length) {
+    timelineHtml = `
+      <div class="today-empty">
+        <div class="today-empty-icon">🌴</div>
+        <div style="font-size:18px;font-weight:600;color:var(--gray-800)">Free day!</div>
+        <div style="font-size:14px;color:var(--gray-400);margin-top:8px">Nothing scheduled — enjoy it!</div>
+        <button class="btn btn-primary" style="margin-top:20px" data-action="open-planner" data-trip="${trip.id}">Plan Today</button>
+      </div>`;
+  } else {
+    timelineHtml = acts.map((a, i) => {
+      const isCurrent = i === nextIdx;
+      const isDone = nextIdx === -1 ? true : i < nextIdx;
+      return `
+        <div class="timeline-item">
+          <div class="timeline-left">
+            <div class="timeline-time">${a.time || '--'}</div>
+            <div class="timeline-connector">
+              <div class="timeline-dot ${isCurrent ? 'current' : isDone ? 'done' : ''}"></div>
+              <div class="timeline-line"></div>
+            </div>
+          </div>
+          <div class="timeline-card ${isCurrent ? 'current-card' : isDone ? 'done-card' : ''}">
+            ${isCurrent ? '<div class="next-up-label">▶ Next up</div>' : ''}
+            <div class="timeline-card-icon">${catIcon(a.category)}</div>
+            <div class="timeline-card-title">${a.title}</div>
+            ${a.location ? `<div class="timeline-card-loc">📍 ${a.location}</div>` : ''}
+            ${a.notes ? `<div class="timeline-card-notes">${a.notes}</div>` : ''}
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  return `
+    <div class="today-hero">
+      <div class="container">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
+          <div>
+            <div class="today-label">✈️ ${trip.name}</div>
+            <div class="today-date">${dateLabel}</div>
+            <div class="today-dest">📍 ${trip.destination}</div>
+            <div class="today-day-badge">Day ${dayNum} of ${days.length}</div>
+          </div>
+          <div style="font-size:44px;line-height:1">${trip.emoji}</div>
+        </div>
+      </div>
+    </div>
+    <div class="today-subnav"><div class="container"><div class="today-subnav-inner">
+      <button class="btn btn-ghost btn-sm" data-action="go-home">← Home</button>
+      <button class="btn btn-secondary btn-sm" data-action="open-planner" data-trip="${trip.id}">📋 Full Itinerary</button>
+    </div></div></div>
+    <div class="container"><div class="timeline">${timelineHtml}</div></div>`;
+}
+
+// ─── MODALS ───────────────────────────────────────────────────
+function showModal(html) {
+  const root = document.getElementById('modal-root');
+  root.innerHTML = `<div class="modal-overlay" id="overlay">${html}</div>`;
+  root.querySelector('#overlay').addEventListener('click', e => { if (e.target.id === 'overlay') closeModal(); });
+  root.addEventListener('click', handleModalClick);
+}
+function closeModal() { document.getElementById('modal-root').innerHTML = ''; }
+
+function showNewTripModal(trip = null) {
+  const editing = !!trip;
+  const emojis = ['✈️','🏖️','🏔️','🗺️','🌍','🌏','🌎','🏛️','🎡','🚂','⛵','🏕️','🌺','🎭','🍜','🧳'];
+  const selEmoji = trip?.emoji || '✈️';
+
+  showModal(`
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-title">${editing ? 'Edit Trip' : 'New Trip'}</div>
+        <button class="modal-close" data-action="close-modal">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <div class="form-label">Trip Name</div>
+          <input class="form-input" id="inp-name" placeholder="e.g. Summer in Europe" value="${trip?.name || ''}">
+        </div>
+        <div class="form-group">
+          <div class="form-label">Destination</div>
+          <input class="form-input" id="inp-dest" placeholder="e.g. Paris, France" value="${trip?.destination || ''}">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <div class="form-label">Start Date</div>
+            <input class="form-input" id="inp-start" type="date" value="${trip?.startDate || ''}">
+          </div>
+          <div class="form-group">
+            <div class="form-label">End Date</div>
+            <input class="form-input" id="inp-end" type="date" value="${trip?.endDate || ''}">
+          </div>
+        </div>
+        <div class="form-group">
+          <div class="form-label">Icon</div>
+          <div class="emoji-row" id="emoji-row">${emojis.map(e => `<button class="emoji-btn ${e === selEmoji ? 'selected' : ''}" data-emoji="${e}">${e}</button>`).join('')}</div>
+          <input type="hidden" id="inp-emoji" value="${selEmoji}">
+        </div>
+      </div>
+      <div class="modal-footer">
+        ${editing ? `<button class="btn btn-danger" data-action="delete-trip" data-trip="${trip.id}">Delete Trip</button><span style="flex:1"></span>` : ''}
+        <button class="btn btn-secondary" data-action="close-modal">Cancel</button>
+        <button class="btn btn-primary" data-action="${editing ? 'save-trip' : 'create-trip'}" ${editing ? `data-trip="${trip.id}"` : ''}>${editing ? 'Save' : 'Create Trip'}</button>
+      </div>
+    </div>`);
+
+  document.getElementById('emoji-row').addEventListener('click', e => {
+    const btn = e.target.closest('[data-emoji]');
+    if (!btn) return;
+    document.querySelectorAll('.emoji-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    document.getElementById('inp-emoji').value = btn.dataset.emoji;
+  });
+}
+
+function showActivityModal(tripId, dayDate, act = null) {
+  const editing = !!act;
+  const cats = [['food','🍽️ Food & Drink'],['activity','🎯 Activity'],['transport','🚗 Transport'],['accommodation','🏨 Stay'],['other','📌 Other']];
+  showModal(`
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-title">${editing ? 'Edit Activity' : 'Add Activity'}</div>
+        <button class="modal-close" data-action="close-modal">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-row">
+          <div class="form-group">
+            <div class="form-label">Time</div>
+            <input class="form-input" id="inp-time" type="time" value="${act?.time || ''}">
+          </div>
+          <div class="form-group">
+            <div class="form-label">Category</div>
+            <select class="form-input" id="inp-cat">
+              ${cats.map(([v,l]) => `<option value="${v}" ${act?.category===v?'selected':''}>${l}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <div class="form-label">Activity</div>
+          <input class="form-input" id="inp-atitle" placeholder="e.g. Visit the Eiffel Tower" value="${act?.title || ''}">
+        </div>
+        <div class="form-group">
+          <div class="form-label">Location</div>
+          <input class="form-input" id="inp-aloc" placeholder="e.g. Champ de Mars, Paris" value="${act?.location || ''}">
+        </div>
+        <div class="form-group">
+          <div class="form-label">Notes</div>
+          <textarea class="form-input" id="inp-anotes" placeholder="Booking ref, tips, reminders…" rows="2">${act?.notes || ''}</textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        ${editing ? `<button class="btn btn-danger" data-action="delete-activity" data-trip="${tripId}" data-day="${dayDate}" data-act="${act.id}">Delete</button><span style="flex:1"></span>` : ''}
+        <button class="btn btn-secondary" data-action="close-modal">Cancel</button>
+        <button class="btn btn-primary" data-action="${editing ? 'update-activity' : 'save-activity'}" data-trip="${tripId}" data-day="${dayDate}" ${editing ? `data-act="${act.id}"` : ''}>${editing ? 'Save' : 'Add'}</button>
+      </div>
+    </div>`);
+}
+
+function showSettings() {
+  showModal(`
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-title">⚙️ Settings</div>
+        <button class="modal-close" data-action="close-modal">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <div class="form-label">Claude API Key</div>
+          <input class="form-input" id="inp-apikey" type="password" placeholder="sk-ant-..." value="${S.apiKey}">
+          <div class="api-hint">Required for ✨ AI Suggest. Stored locally only. Get one at <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-action="close-modal">Cancel</button>
+        <button class="btn btn-primary" data-action="save-settings">Save</button>
+      </div>
+    </div>`);
+}
+
+async function showAISuggest(tripId, dayDate) {
+  const trip = getTrip(tripId);
+  const existing = trip.days?.find(d => d.date === dayDate)?.activities || [];
+  const days = getDays(trip);
+  const dayNum = days.indexOf(dayDate) + 1;
+
+  showModal(`
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-title">✨ AI Day Planner</div>
+        <button class="modal-close" data-action="close-modal">✕</button>
+      </div>
+      <div class="modal-body" id="ai-body">
+        <div class="loading-state">
+          <div class="spinner"></div>
+          <div class="loading-text">Planning your day in ${trip.destination}…</div>
+        </div>
+      </div>
+    </div>`);
+
+  if (!S.apiKey) {
+    document.getElementById('ai-body').innerHTML = `
+      <div style="text-align:center;padding:28px">
+        <div style="font-size:36px;margin-bottom:12px">🔑</div>
+        <div style="font-size:15px;font-weight:600;margin-bottom:8px">API Key Required</div>
+        <div style="font-size:13px;color:var(--gray-600)">Add your Claude API key in Settings to use AI suggestions.</div>
+        <button class="btn btn-primary" style="margin-top:20px" data-action="open-settings-from-ai">Open Settings</button>
+      </div>`;
+    return;
+  }
+
+  const existingStr = existing.length
+    ? `Already planned: ${existing.map(a => a.title).join(', ')}.`
+    : 'Nothing planned for this day yet.';
+
+  const prompt = `You are an expert travel planner. Suggest exactly 5 activities for day ${dayNum} of ${days.length} of a trip to ${trip.destination}.
+
+${existingStr}
+Date: ${fmtFull(dayDate)}
+
+Suggest a balanced, realistic day (consider travel time between places). Mix meal times, sightseeing, and local experiences. Do NOT duplicate already-planned activities.
+
+Respond with ONLY valid JSON (no markdown, no explanation):
+{"suggestions":[{"time":"09:00","title":"Short specific name","location":"Specific place name","notes":"One useful sentence","category":"food|activity|transport|accommodation|other"}]}`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': S.apiKey,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 1024,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error?.message || `API error ${res.status}`);
+    }
+
+    const data = await res.json();
+    const suggestions = JSON.parse(data.content[0].text).suggestions;
+    window._aiData = { suggestions, tripId, dayDate };
+
+    document.getElementById('ai-body').innerHTML = suggestions.map((s, i) => `
+      <div class="suggestion-card" data-idx="${i}">
+        <div class="suggestion-row">
+          <div class="suggestion-check"></div>
+          <div class="suggestion-icon">${catIcon(s.category)}</div>
+          <div class="suggestion-title">${s.title}</div>
+          <div class="suggestion-time">${s.time}</div>
+        </div>
+        <div class="suggestion-loc">📍 ${s.location}</div>
+        <div class="suggestion-notes">${s.notes}</div>
+      </div>`).join('');
+
+    document.querySelector('.modal').insertAdjacentHTML('beforeend', `
+      <div class="modal-footer">
+        <span style="font-size:13px;color:var(--gray-400);flex:1">Tap to select</span>
+        <button class="btn btn-secondary" data-action="close-modal">Cancel</button>
+        <button class="btn btn-primary" data-action="add-ai-activities">Add Selected</button>
+      </div>`);
+
+    document.getElementById('ai-body').addEventListener('click', e => {
+      const card = e.target.closest('.suggestion-card');
+      if (!card) return;
+      card.classList.toggle('selected');
+      card.querySelector('.suggestion-check').textContent = card.classList.contains('selected') ? '✓' : '';
+    });
+
+  } catch (err) {
+    document.getElementById('ai-body').innerHTML = `
+      <div style="text-align:center;padding:28px">
+        <div style="font-size:32px;margin-bottom:12px">⚠️</div>
+        <div style="font-size:14px;font-weight:600;margin-bottom:6px">Something went wrong</div>
+        <div style="font-size:13px;color:var(--gray-400)">${err.message}</div>
+        <button class="btn btn-secondary" style="margin-top:16px" data-action="close-modal">Close</button>
+      </div>`;
+  }
+}
+
+// ─── MUTATIONS ────────────────────────────────────────────────
+function ensureDay(trip, date) {
+  if (!trip.days) trip.days = [];
+  let day = trip.days.find(d => d.date === date);
+  if (!day) { day = { date, activities: [] }; trip.days.push(day); }
+  return day;
+}
+
+function createTrip() {
+  const name  = document.getElementById('inp-name').value.trim();
+  const dest  = document.getElementById('inp-dest').value.trim();
+  const start = document.getElementById('inp-start').value;
+  const end   = document.getElementById('inp-end').value;
+  const emoji = document.getElementById('inp-emoji').value;
+  if (!name || !dest || !start || !end) return alert('Please fill in all fields.');
+  if (end < start) return alert('End date must be after start date.');
+  const trip = { id: uid(), name, destination: dest, startDate: start, endDate: end, emoji, gradIdx: Math.floor(Math.random() * 6), days: [] };
+  S.trips.push(trip);
+  save(); closeModal(); navigate('planner', trip.id, 0);
+}
+
+function saveTrip(tripId) {
+  const trip = getTrip(tripId);
+  const name  = document.getElementById('inp-name').value.trim();
+  const dest  = document.getElementById('inp-dest').value.trim();
+  const start = document.getElementById('inp-start').value;
+  const end   = document.getElementById('inp-end').value;
+  if (!name || !dest || !start || !end) return alert('Please fill in all fields.');
+  if (end < start) return alert('End date must be after start date.');
+  Object.assign(trip, { name, destination: dest, startDate: start, endDate: end, emoji: document.getElementById('inp-emoji').value });
+  save(); closeModal(); render();
+}
+
+function deleteTrip(tripId) {
+  if (!confirm('Delete this trip? This cannot be undone.')) return;
+  S.trips = S.trips.filter(t => t.id !== tripId);
+  save(); closeModal(); navigate('home');
+}
+
+function readActivityForm() {
+  return {
+    time: document.getElementById('inp-time').value,
+    category: document.getElementById('inp-cat').value,
+    title: document.getElementById('inp-atitle').value.trim(),
+    location: document.getElementById('inp-aloc').value.trim(),
+    notes: document.getElementById('inp-anotes').value.trim()
+  };
+}
+
+function saveActivity(tripId, dayDate) {
+  const f = readActivityForm();
+  if (!f.title) return alert('Activity name is required.');
+  ensureDay(getTrip(tripId), dayDate).activities.push({ id: uid(), ...f, confirmed: false });
+  save(); closeModal(); render();
+}
+
+function updateActivity(tripId, dayDate, actId) {
+  const f = readActivityForm();
+  if (!f.title) return alert('Activity name is required.');
+  const act = getTrip(tripId).days.find(d => d.date === dayDate).activities.find(a => a.id === actId);
+  Object.assign(act, f);
+  save(); closeModal(); render();
+}
+
+function deleteActivity(tripId, dayDate, actId) {
+  const day = getTrip(tripId).days.find(d => d.date === dayDate);
+  day.activities = day.activities.filter(a => a.id !== actId);
+  save(); closeModal(); render();
+}
+
+function toggleConfirm(tripId, dayDate, actId) {
+  const act = getTrip(tripId).days?.find(d => d.date === dayDate)?.activities?.find(a => a.id === actId);
+  if (act) { act.confirmed = !act.confirmed; save(); render(); }
+}
+
+function addAIActivities() {
+  const selected = [...document.querySelectorAll('.suggestion-card.selected')];
+  if (!selected.length) return alert('Select at least one activity to add.');
+  const { suggestions, tripId, dayDate } = window._aiData;
+  const day = ensureDay(getTrip(tripId), dayDate);
+  selected.forEach(card => {
+    const s = suggestions[parseInt(card.dataset.idx)];
+    day.activities.push({ id: uid(), time: s.time, category: s.category, title: s.title, location: s.location, notes: s.notes, confirmed: false });
+  });
+  save(); closeModal(); render();
+}
+
+// ─── EVENT DELEGATION ─────────────────────────────────────────
+function handleClick(e) {
+  const el = e.target.closest('[data-action]');
+  if (!el) return;
+  const { action, trip, day, act } = el.dataset;
+
+  if (action === 'go-home') navigate('home');
+  else if (action === 'new-trip') showNewTripModal();
+  else if (action === 'open-trip') navigate('planner', trip, 0);
+  else if (action === 'go-today') navigate('today', trip);
+  else if (action === 'open-planner') navigate('planner', trip, S.dayIdx);
+  else if (action === 'settings') showSettings();
+  else if (action === 'switch-day') { S.dayIdx = parseInt(el.dataset.day); render(); }
+  else if (action === 'ai-suggest') showAISuggest(trip, day);
+  else if (action === 'add-activity') showActivityModal(trip, day);
+  else if (action === 'edit-trip') showNewTripModal(getTrip(trip));
+  else if (action === 'toggle-confirm') { e.stopPropagation(); toggleConfirm(trip, day, act); }
+  else if (action === 'edit-activity') {
+    const t = getTrip(trip);
+    const a = t.days?.find(x => x.date === day)?.activities?.find(x => x.id === act);
+    if (a) showActivityModal(trip, day, a);
+  }
+}
+
+function handleModalClick(e) {
+  const el = e.target.closest('[data-action]');
+  if (!el) return;
+  const { action, trip, day, act } = el.dataset;
+
+  if (action === 'close-modal') closeModal();
+  else if (action === 'create-trip') createTrip();
+  else if (action === 'save-trip') saveTrip(trip);
+  else if (action === 'delete-trip') deleteTrip(trip);
+  else if (action === 'save-activity') saveActivity(trip, day);
+  else if (action === 'update-activity') updateActivity(trip, day, act);
+  else if (action === 'delete-activity') deleteActivity(trip, day, act);
+  else if (action === 'add-ai-activities') addAIActivities();
+  else if (action === 'open-settings-from-ai') { closeModal(); showSettings(); }
+  else if (action === 'save-settings') {
+    S.apiKey = document.getElementById('inp-apikey').value.trim();
+    localStorage.setItem('wandr_api_key', S.apiKey);
+    closeModal();
+  }
+}
+
+// ─── INIT ─────────────────────────────────────────────────────
+render();
+</script>
+</body>
+</html>
