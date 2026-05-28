@@ -781,44 +781,63 @@ function showSettings() {
 }
 
 // ─── AI CHAT ──────────────────────────────────────────────────
-const CHAT = { history: [], tripId: null, dayDate: null, pendingPlans: [] };
+const CHAT = { history: [], messages: [], tripId: null, dayDate: null, pendingPlans: [] };
 
-const QUICK_PROMPTS = [
-  "What shouldn't I miss?",
-  "Hidden gems only locals know?",
-  "Best food spots for my taste?",
-  "How should I get around?",
-  "Build a plan for today",
-  "What should I pack?"
-];
-
-function agentSystemPrompt(trip, dayDate) {
-  const prefsText = prefsToPromptText();
-  const days = getDays(trip);
-  const dayList = days.map((d, i) => `Day ${i+1}: ${fmtFull(d)}`).join('\n');
-  const currentDayNum = dayDate ? days.indexOf(dayDate) + 1 : null;
-  const currentDayLabel = dayDate ? `Currently viewing: Day ${currentDayNum} — ${fmtFull(dayDate)}` : '';
-
-  return `You are the world's finest personal travel agent — an expert with encyclopedic, street-level knowledge of destinations worldwide. You are helping plan a ${days.length}-day trip to ${trip.destination} (${fmtShort(trip.startDate)} – ${fmtShort(trip.endDate)}).
-${prefsText ? `\nTraveler preferences:\n${prefsText}\n` : ''}
-Trip days:
-${dayList}
-${currentDayLabel ? `\n${currentDayLabel}` : ''}
-
-You know ${trip.destination} like a seasoned local — best neighbourhoods, authentic restaurants, hidden gems, transport hacks, cultural nuances, and insider secrets tourists never discover. Give specific advice with real names, never generic platitudes. Speak like a brilliant, enthusiastic friend. Keep replies concise: 2-4 sentences or a tight list.
-
-IMPORTANT — When the user asks you to BUILD, CREATE, or PLAN a schedule/itinerary for a specific day, respond with a short friendly message AND append this block at the very end of your reply (no extra text after it):
-PLAN_ACTIVITIES:{"day":"${dayDate || (days[0] || '')}","activities":[{"time":"09:00","title":"Place name","category":"food|activity|transport|accommodation|other","location":"Area","notes":"Description"}]}
-Include 4-6 activities in chronological order. Only include PLAN_ACTIVITIES when explicitly asked to build/plan/create a schedule for a day. For all other questions, reply normally with no PLAN_ACTIVITIES block.`;
+// ── Persistence ──────────────────────────────────────────────
+function loadChatHistory(tripId) {
+  try {
+    const data = JSON.parse(localStorage.getItem(`wandr_chat_${tripId}`) || 'null');
+    if (data) { CHAT.history = data.history || []; CHAT.messages = data.messages || []; }
+    else       { CHAT.history = []; CHAT.messages = []; }
+  } catch(_) { CHAT.history = []; CHAT.messages = []; }
 }
 
+function saveChatHistory() {
+  try {
+    localStorage.setItem(`wandr_chat_${CHAT.tripId}`, JSON.stringify({
+      history:  CHAT.history.slice(-80),
+      messages: CHAT.messages.slice(-80)
+    }));
+  } catch(_) {}
+}
+
+function clearChatHistory() {
+  CHAT.history = []; CHAT.messages = [];
+  localStorage.removeItem(`wandr_chat_${CHAT.tripId}`);
+}
+
+// ── Message rendering ─────────────────────────────────────────
+function renderStoredMsg(m) {
+  if (m.type === 'plan') {
+    const rows = (m.activities || []).map(a =>
+      `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid var(--gray-100)">
+        <span style="font-size:12px;font-weight:600;color:var(--gray-400);min-width:38px">${a.time||'--'}</span>
+        <span>${catIcon(a.category)}</span>
+        <span style="font-size:13px;font-weight:500">${a.title}</span>
+      </div>`
+    ).join('');
+    return `<div class="chat-msg chat-msg-agent" style="max-width:96%">
+      <div class="chat-bubble" style="background:white;border:2px solid var(--gray-200);padding:12px 14px">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--gray-400);margin-bottom:8px">📋 Plan — ${fmtShort(m.dayDate)}</div>
+        ${rows}
+        <div style="font-size:12px;color:var(--green);margin-top:8px;font-weight:500">✓ Added to planner</div>
+      </div>
+      <div class="chat-time">✈️ ${m.time}</div>
+    </div>`;
+  }
+  const safe = m.text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+  return `<div class="chat-msg chat-msg-${m.role}">
+    <div class="chat-bubble">${safe}</div>
+    <div class="chat-time">${m.role === 'agent' ? '✈️ ' : ''}${m.time}</div>
+  </div>`;
+}
+
+// Renders a new message, stores it, and returns the HTML
 function chatMsgHtml(text, role) {
   const time = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-  const safe = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
-  return `<div class="chat-msg chat-msg-${role}">
-    <div class="chat-bubble">${safe}</div>
-    <div class="chat-time">${role === 'agent' ? '✈️ ' : ''}${time}</div>
-  </div>`;
+  const m = { type: 'message', role, text, time };
+  CHAT.messages.push(m);
+  return renderStoredMsg(m);
 }
 
 function planCardHtml(activities, dayDate, planIdx) {
@@ -850,6 +869,35 @@ function typingHtml(id) {
   </div>`;
 }
 
+const QUICK_PROMPTS = [
+  "What shouldn't I miss?",
+  "Hidden gems only locals know?",
+  "Best food spots for my taste?",
+  "How should I get around?",
+  "Build a plan for today",
+  "What should I pack?"
+];
+
+function agentSystemPrompt(trip, dayDate) {
+  const prefsText = prefsToPromptText();
+  const days = getDays(trip);
+  const dayList = days.map((d, i) => `Day ${i+1}: ${fmtFull(d)}`).join('\n');
+  const currentDayNum = dayDate ? days.indexOf(dayDate) + 1 : null;
+  const currentDayLabel = dayDate ? `Currently viewing: Day ${currentDayNum} — ${fmtFull(dayDate)}` : '';
+
+  return `You are the world's finest personal travel agent — an expert with encyclopedic, street-level knowledge of destinations worldwide. You are helping plan a ${days.length}-day trip to ${trip.destination} (${fmtShort(trip.startDate)} – ${fmtShort(trip.endDate)}).
+${prefsText ? `\nTraveler preferences:\n${prefsText}\n` : ''}
+Trip days:
+${dayList}
+${currentDayLabel ? `\n${currentDayLabel}` : ''}
+
+You know ${trip.destination} like a seasoned local — best neighbourhoods, authentic restaurants, hidden gems, transport hacks, cultural nuances, and insider secrets tourists never discover. Give specific advice with real names, never generic platitudes. Speak like a brilliant, enthusiastic friend. Keep replies concise: 2-4 sentences or a tight list.
+
+IMPORTANT — When the user asks you to BUILD, CREATE, or PLAN a schedule/itinerary for a specific day, respond with a short friendly message AND append this block at the very end of your reply (no extra text after it):
+PLAN_ACTIVITIES:{"day":"${dayDate || (days[0] || '')}","activities":[{"time":"09:00","title":"Place name","category":"food|activity|transport|accommodation|other","location":"Area","notes":"Description"}]}
+Include 4-6 activities in chronological order. Only include PLAN_ACTIVITIES when explicitly asked to build/plan/create a schedule for a day. For all other questions reply normally with no PLAN_ACTIVITIES block.`;
+}
+
 async function callClaude(system, messages, maxTokens = 600) {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -870,8 +918,11 @@ async function showAIChat(tripId, dayDate) {
   const trip = getTrip(tripId);
   CHAT.tripId = tripId;
   CHAT.dayDate = dayDate || null;
-  CHAT.history = [];
   CHAT.pendingPlans = [];
+
+  // Load persisted history for this trip
+  loadChatHistory(tripId);
+  const hasHistory = CHAT.messages.length > 0;
 
   const quickHtml = QUICK_PROMPTS.map(q =>
     `<button class="chat-quick-pill" data-quick="${q.replace(/"/g,'&quot;')}">${q}</button>`
@@ -879,19 +930,31 @@ async function showAIChat(tripId, dayDate) {
 
   const noKey = !S.apiKey;
 
+  // History header button (only shown when there is prior conversation)
+  const historyBtn = hasHistory
+    ? `<button class="btn btn-ghost btn-sm" style="font-size:12px;color:var(--gray-400)" data-action="clear-chat-history">🗑 Clear chat</button>`
+    : '';
+
+  // Render stored messages or show greeting placeholder
+  const initialMsgs = hasHistory
+    ? `<div style="text-align:center;font-size:11px;color:var(--gray-400);padding:8px 0 4px">— Previous conversation —</div>` +
+      CHAT.messages.map(renderStoredMsg).join('')
+    : typingHtml('greeting');
+
   document.getElementById('modal-root').innerHTML = `
     <div class="modal-overlay" id="overlay">
       <div class="chat-modal">
         <div class="chat-header">
           <div class="chat-avatar">✈️</div>
-          <div>
+          <div style="flex:1">
             <div class="chat-agent-name">Your Travel Agent</div>
             <div class="chat-agent-sub"><span class="chat-online"></span>Expert on ${trip.destination}</div>
           </div>
-          <button class="modal-close" style="margin-left:auto" data-action="close-modal">✕</button>
+          ${historyBtn}
+          <button class="modal-close" style="margin-left:8px" data-action="close-modal">✕</button>
         </div>
-        <div class="chat-messages" id="chat-msgs">${typingHtml('greeting')}</div>
-        <div class="chat-quick-wrap" id="quick-wrap">
+        <div class="chat-messages" id="chat-msgs">${initialMsgs}</div>
+        <div class="chat-quick-wrap" id="quick-wrap" ${hasHistory ? 'style="display:none"' : ''}>
           <div class="chat-quick-label">Quick questions</div>
           <div class="chat-quick-pills">${quickHtml}</div>
         </div>
@@ -919,10 +982,18 @@ async function showAIChat(tripId, dayDate) {
     doSendChat(trip);
   });
 
-  if (noKey) {
-    document.getElementById('greeting').outerHTML = chatMsgHtml(`👋 Hi! I'm your personal travel agent for ${trip.destination}. To chat with me, add your Claude API key in Settings.`, 'agent');
+  scrollChat();
+
+  // If existing history, jump straight to ready — no greeting needed
+  if (hasHistory || noKey) {
+    if (noKey && !hasHistory) {
+      document.getElementById('greeting').outerHTML = chatMsgHtml(`👋 Hi! I'm your personal travel agent for ${trip.destination}. To chat with me, add your Claude API key in Settings.`, 'agent');
+      saveChatHistory();
+    }
     return;
   }
+
+  // Fresh session — fetch greeting
   try {
     const greeting = await callClaude(agentSystemPrompt(trip, dayDate), [{
       role: 'user',
@@ -930,9 +1001,11 @@ async function showAIChat(tripId, dayDate) {
     }]);
     CHAT.history.push({ role: 'assistant', content: greeting });
     document.getElementById('greeting').outerHTML = chatMsgHtml(greeting, 'agent');
+    saveChatHistory();
     scrollChat();
-  } catch(e) {
+  } catch(_) {
     document.getElementById('greeting').outerHTML = chatMsgHtml('👋 Ready to help plan your trip! What would you like to know?', 'agent');
+    saveChatHistory();
   }
 }
 
@@ -975,8 +1048,11 @@ async function doSendChat(trip) {
         const planDayDate = planData.day || CHAT.dayDate || getDays(trip)[0];
         const planIdx = CHAT.pendingPlans.length;
         CHAT.pendingPlans.push({ activities, dayDate: planDayDate });
+        // Store plan in display messages for history
+        const time = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+        CHAT.messages.push({ type: 'plan', activities, dayDate: planDayDate, time });
         planCard = planCardHtml(activities, planDayDate, planIdx);
-      } catch(_) { /* bad JSON — show full text */ displayText = raw; }
+      } catch(_) { displayText = raw; }
     }
 
     CHAT.history.push({ role: 'assistant', content: raw });
@@ -985,6 +1061,8 @@ async function doSendChat(trip) {
     if (typingEl) {
       typingEl.outerHTML = (displayText ? chatMsgHtml(displayText, 'agent') : '') + planCard;
     }
+
+    saveChatHistory(); // Persist after every exchange
   } catch(e) {
     const typingEl = document.getElementById(tid);
     if (typingEl) typingEl.outerHTML = chatMsgHtml('Sorry, something went wrong — please try again.', 'agent');
@@ -1293,6 +1371,10 @@ function handleModalClick(e) {
   else if (action === 'delete-activity') deleteActivity(trip, day, act);
   else if (action === 'add-ai-activities') addAIActivities();
   else if (action === 'open-settings-from-ai') { closeModal(); showSettings(); }
+  else if (action === 'clear-chat-history') {
+    clearChatHistory();
+    showAIChat(CHAT.tripId, CHAT.dayDate); // Reopen fresh
+  }
   else if (action === 'apply-chat-plan') {
     const planIdx = parseInt(el.dataset.plan);
     applyPlanToDay(planIdx);
