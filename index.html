@@ -1084,15 +1084,35 @@ function applyPlanToDay(planIdx) {
   save();
 }
 
-function extractJSON(text) {
-  // Strip markdown code fences if present, then parse
-  const stripped = text.replace(/```(?:json)?\s*/g, '').replace(/```\s*/g, '').trim();
-  // Try direct parse first, then hunt for first { or [
-  try { return JSON.parse(stripped); } catch(_) {}
-  const start = stripped.search(/[{\[]/);
-  if (start !== -1) return JSON.parse(stripped.slice(start));
-  throw new Error('No JSON found in response');
-}
+// Tool schema for forced structured output (no JSON parsing errors possible)
+const SUGGEST_TOOL = {
+  name: 'suggest_activities',
+  description: 'Return personalised activity suggestions for a day of travel',
+  input_schema: {
+    type: 'object',
+    properties: {
+      suggestions: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            time:     { type: 'string', description: 'Time in HH:MM 24-hour format' },
+            title:    { type: 'string', description: 'Specific place or experience name' },
+            location: { type: 'string', description: 'Neighbourhood or street address' },
+            notes:    { type: 'string', description: '1-2 sentences: what makes this special' },
+            category: { type: 'string', enum: ['food','activity','transport','accommodation','other'] },
+            why:      { type: 'string', description: 'Why this suits this specific traveler (1 sentence)' },
+            pro_tip:  { type: 'string', description: 'One insider tip a local would give' },
+            duration: { type: 'string', description: 'Estimated duration e.g. ~2 hours' },
+            price:    { type: 'string', description: 'Price indicator: Free, €, €€, or €€€' }
+          },
+          required: ['time','title','location','category','notes']
+        }
+      }
+    },
+    required: ['suggestions']
+  }
+};
 
 async function showAISuggest(tripId, dayDate) {
   const trip = getTrip(tripId);
@@ -1162,20 +1182,7 @@ Requirements:
 - Plan the day in logical geographic order to minimise unnecessary travel
 - Every suggestion must be a real, specific place (not generic descriptions)
 - Lean toward local, authentic spots over tourist traps${prefsText ? '\n- Prioritise the traveler\'s stated preferences above all else' : ''}
-- Include the kind of insider detail only a seasoned local would know
-
-Respond with ONLY valid JSON (no markdown, no explanation):
-{"suggestions":[{
-  "time":"09:00",
-  "title":"Specific place or experience name",
-  "location":"Neighborhood or address",
-  "notes":"1-2 sentences: what makes this special",
-  "category":"food|activity|transport|accommodation|other",
-  "why":"Why this suits THIS traveler specifically (1 sentence, be personal)",
-  "pro_tip":"One insider tip a local would give (book ahead / best dish / hidden entrance / optimal time)",
-  "duration":"~X hours",
-  "price":"Free|€|€€|€€€"
-}]}`;
+- Include the kind of insider detail only a seasoned local would know`;
 
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -1188,7 +1195,9 @@ Respond with ONLY valid JSON (no markdown, no explanation):
       },
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
-        max_tokens: 1024,
+        max_tokens: 1500,
+        tools: [SUGGEST_TOOL],
+        tool_choice: { type: 'tool', name: 'suggest_activities' },
         messages: [{ role: 'user', content: prompt }]
       })
     });
@@ -1199,7 +1208,10 @@ Respond with ONLY valid JSON (no markdown, no explanation):
     }
 
     const data = await res.json();
-    const suggestions = extractJSON(data.content[0].text).suggestions;
+    // Tool-use response: API enforces valid JSON — no parsing errors possible
+    const toolBlock = data.content.find(b => b.type === 'tool_use');
+    if (!toolBlock) throw new Error('No structured response from AI');
+    const suggestions = toolBlock.input.suggestions;
     window._aiData = { suggestions, tripId, dayDate };
 
     document.getElementById('ai-body').innerHTML = suggestions.map((s, i) => `
