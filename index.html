@@ -518,7 +518,7 @@ function renderPlanner() {
         <div class="activities-list">${actsHtml}</div>
       </div>
     </div>
-    <button class="agent-fab" data-action="ai-chat" data-trip="${trip.id}">💬 Ask your Agent</button>
+    <button class="agent-fab" data-action="ai-chat" data-trip="${trip.id}" data-day="${curDate}">💬 Ask your Agent</button>
     ${isActive ? `<div style="position:fixed;bottom:24px;right:24px;z-index:50"><button class="btn btn-amber" data-action="go-today" data-trip="${trip.id}">📍 Today's View</button></div>` : ''}`;
 }
 
@@ -590,7 +590,7 @@ function renderToday() {
     <div class="today-subnav"><div class="container"><div class="today-subnav-inner">
       <button class="btn btn-ghost btn-sm" data-action="go-home">← Home</button>
       <button class="btn btn-secondary btn-sm" data-action="open-planner" data-trip="${trip.id}">📋 Full Itinerary</button>
-      <button class="btn btn-sm" style="background:linear-gradient(135deg,#0EA5E9,#6366F1);color:white;margin-left:auto" data-action="ai-chat" data-trip="${trip.id}">💬 Ask Agent</button>
+      <button class="btn btn-sm" style="background:linear-gradient(135deg,#0EA5E9,#6366F1);color:white;margin-left:auto" data-action="ai-chat" data-trip="${trip.id}" data-day="${today}">💬 Ask Agent</button>
     </div></div></div>
     <div class="container"><div class="timeline">${timelineHtml}</div></div>`;
 }
@@ -781,23 +781,35 @@ function showSettings() {
 }
 
 // ─── AI CHAT ──────────────────────────────────────────────────
-const CHAT = { history: [], tripId: null };
+const CHAT = { history: [], tripId: null, dayDate: null, pendingPlans: [] };
 
 const QUICK_PROMPTS = [
   "What shouldn't I miss?",
   "Hidden gems only locals know?",
   "Best food spots for my taste?",
   "How should I get around?",
-  "Any tips for saving money?",
+  "Build a plan for today",
   "What should I pack?"
 ];
 
-function agentSystemPrompt(trip) {
+function agentSystemPrompt(trip, dayDate) {
   const prefsText = prefsToPromptText();
   const days = getDays(trip);
-  return `You are the world's finest personal travel agent — an expert with encyclopedic, street-level knowledge of destinations worldwide. You're helping plan a ${days.length}-day trip to ${trip.destination} (${fmtShort(trip.startDate)} – ${fmtShort(trip.endDate)}).
+  const dayList = days.map((d, i) => `Day ${i+1}: ${fmtFull(d)}`).join('\n');
+  const currentDayNum = dayDate ? days.indexOf(dayDate) + 1 : null;
+  const currentDayLabel = dayDate ? `Currently viewing: Day ${currentDayNum} — ${fmtFull(dayDate)}` : '';
+
+  return `You are the world's finest personal travel agent — an expert with encyclopedic, street-level knowledge of destinations worldwide. You are helping plan a ${days.length}-day trip to ${trip.destination} (${fmtShort(trip.startDate)} – ${fmtShort(trip.endDate)}).
 ${prefsText ? `\nTraveler preferences:\n${prefsText}\n` : ''}
-You know ${trip.destination} like a well-travelled local — the best neighborhoods, authentic restaurants, hidden gems, transport hacks, cultural nuances, and insider secrets tourists rarely discover. Give specific advice (real place names, addresses, times) — never generic platitudes. Speak like a brilliant, enthusiastic friend, not a brochure. Keep replies concise: 2-4 sentences or a tight list. Use light formatting where it helps readability.`;
+Trip days:
+${dayList}
+${currentDayLabel ? `\n${currentDayLabel}` : ''}
+
+You know ${trip.destination} like a seasoned local — best neighbourhoods, authentic restaurants, hidden gems, transport hacks, cultural nuances, and insider secrets tourists never discover. Give specific advice with real names, never generic platitudes. Speak like a brilliant, enthusiastic friend. Keep replies concise: 2-4 sentences or a tight list.
+
+IMPORTANT — When the user asks you to BUILD, CREATE, or PLAN a schedule/itinerary for a specific day, respond with a short friendly message AND append this block at the very end of your reply (no extra text after it):
+PLAN_ACTIVITIES:{"day":"${dayDate || (days[0] || '')}","activities":[{"time":"09:00","title":"Place name","category":"food|activity|transport|accommodation|other","location":"Area","notes":"Description"}]}
+Include 4-6 activities in chronological order. Only include PLAN_ACTIVITIES when explicitly asked to build/plan/create a schedule for a day. For all other questions, reply normally with no PLAN_ACTIVITIES block.`;
 }
 
 function chatMsgHtml(text, role) {
@@ -809,6 +821,27 @@ function chatMsgHtml(text, role) {
   </div>`;
 }
 
+function planCardHtml(activities, dayDate, planIdx) {
+  const trip = getTrip(CHAT.tripId);
+  const days = getDays(trip);
+  const dayNum = days.indexOf(dayDate) + 1;
+  const dayLabel = dayNum > 0 ? `Day ${dayNum} — ${fmtShort(dayDate)}` : fmtShort(dayDate);
+  const rows = activities.map(a =>
+    `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--gray-100)">
+      <span style="font-size:12px;font-weight:600;color:var(--gray-400);min-width:38px">${a.time||'--'}</span>
+      <span>${catIcon(a.category)}</span>
+      <span style="font-size:13px;font-weight:500;flex:1">${a.title}</span>
+    </div>`
+  ).join('');
+  return `<div class="chat-msg chat-msg-agent" style="max-width:96%">
+    <div class="chat-bubble" style="background:white;border:2px solid var(--blue);padding:14px 16px">
+      <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--blue);margin-bottom:10px">📋 Plan ready — ${dayLabel}</div>
+      <div style="margin-bottom:12px">${rows}</div>
+      <button class="btn btn-primary btn-sm" style="width:100%" data-action="apply-chat-plan" data-plan="${planIdx}">Add ${activities.length} activities to planner →</button>
+    </div>
+  </div>`;
+}
+
 function typingHtml(id) {
   return `<div class="chat-msg chat-msg-agent" id="${id}">
     <div class="chat-bubble" style="padding:14px 18px">
@@ -817,7 +850,7 @@ function typingHtml(id) {
   </div>`;
 }
 
-async function callClaude(system, messages, maxTokens = 512) {
+async function callClaude(system, messages, maxTokens = 600) {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -833,10 +866,12 @@ async function callClaude(system, messages, maxTokens = 512) {
   return data.content[0].text;
 }
 
-async function showAIChat(tripId) {
+async function showAIChat(tripId, dayDate) {
   const trip = getTrip(tripId);
   CHAT.tripId = tripId;
+  CHAT.dayDate = dayDate || null;
   CHAT.history = [];
+  CHAT.pendingPlans = [];
 
   const quickHtml = QUICK_PROMPTS.map(q =>
     `<button class="chat-quick-pill" data-quick="${q.replace(/"/g,'&quot;')}">${q}</button>`
@@ -871,13 +906,11 @@ async function showAIChat(tripId) {
   overlay.addEventListener('click', e => { if (e.target.id === 'overlay') closeModal(); });
   document.getElementById('modal-root').addEventListener('click', handleModalClick);
 
-  // Auto-resize textarea
   const inp = document.getElementById('chat-input');
   inp.addEventListener('input', () => { inp.style.height = 'auto'; inp.style.height = Math.min(inp.scrollHeight, 100) + 'px'; });
   inp.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); doSendChat(trip); } });
   document.getElementById('chat-send').addEventListener('click', () => doSendChat(trip));
 
-  // Quick prompts
   document.getElementById('quick-wrap').addEventListener('click', e => {
     const pill = e.target.closest('[data-quick]');
     if (!pill) return;
@@ -886,15 +919,14 @@ async function showAIChat(tripId) {
     doSendChat(trip);
   });
 
-  // Greeting
   if (noKey) {
     document.getElementById('greeting').outerHTML = chatMsgHtml(`👋 Hi! I'm your personal travel agent for ${trip.destination}. To chat with me, add your Claude API key in Settings.`, 'agent');
     return;
   }
   try {
-    const greeting = await callClaude(agentSystemPrompt(trip), [{
+    const greeting = await callClaude(agentSystemPrompt(trip, dayDate), [{
       role: 'user',
-      content: `Greet me warmly as my personal travel agent for ${trip.destination}. Mention one surprising or exciting thing I might not know about the destination. Keep it to 2-3 sentences max.`
+      content: `Greet me warmly as my personal travel agent for ${trip.destination}. Mention one surprising or exciting thing I might not know. Keep it to 2-3 sentences.`
     }]);
     CHAT.history.push({ role: 'assistant', content: greeting });
     document.getElementById('greeting').outerHTML = chatMsgHtml(greeting, 'agent');
@@ -928,10 +960,31 @@ async function doSendChat(trip) {
   if (sendBtn) sendBtn.disabled = true;
 
   try {
-    const reply = await callClaude(agentSystemPrompt(trip), CHAT.history);
-    CHAT.history.push({ role: 'assistant', content: reply });
+    const raw = await callClaude(agentSystemPrompt(trip, CHAT.dayDate), CHAT.history, 800);
+
+    // Detect and extract plan block
+    const planMatch = raw.match(/PLAN_ACTIVITIES:(\{[\s\S]*\})\s*$/);
+    let displayText = raw;
+    let planCard = '';
+
+    if (planMatch) {
+      displayText = raw.slice(0, raw.indexOf('PLAN_ACTIVITIES:')).trim();
+      try {
+        const planData = JSON.parse(planMatch[1]);
+        const activities = planData.activities || [];
+        const planDayDate = planData.day || CHAT.dayDate || getDays(trip)[0];
+        const planIdx = CHAT.pendingPlans.length;
+        CHAT.pendingPlans.push({ activities, dayDate: planDayDate });
+        planCard = planCardHtml(activities, planDayDate, planIdx);
+      } catch(_) { /* bad JSON — show full text */ displayText = raw; }
+    }
+
+    CHAT.history.push({ role: 'assistant', content: raw });
+
     const typingEl = document.getElementById(tid);
-    if (typingEl) typingEl.outerHTML = chatMsgHtml(reply, 'agent');
+    if (typingEl) {
+      typingEl.outerHTML = (displayText ? chatMsgHtml(displayText, 'agent') : '') + planCard;
+    }
   } catch(e) {
     const typingEl = document.getElementById(tid);
     if (typingEl) typingEl.outerHTML = chatMsgHtml('Sorry, something went wrong — please try again.', 'agent');
@@ -942,11 +995,42 @@ async function doSendChat(trip) {
   }
 }
 
+function applyPlanToDay(planIdx) {
+  const { activities, dayDate } = CHAT.pendingPlans[planIdx];
+  const trip = getTrip(CHAT.tripId);
+  if (!trip) return;
+  const day = ensureDay(trip, dayDate);
+  activities.forEach(a => {
+    day.activities.push({ id: uid(), time: a.time || '', category: a.category || 'activity', title: a.title, location: a.location || '', notes: a.notes || '', confirmed: false });
+  });
+  save();
+}
+
+function extractJSON(text) {
+  // Strip markdown code fences if present, then parse
+  const stripped = text.replace(/```(?:json)?\s*/g, '').replace(/```\s*/g, '').trim();
+  // Try direct parse first, then hunt for first { or [
+  try { return JSON.parse(stripped); } catch(_) {}
+  const start = stripped.search(/[{\[]/);
+  if (start !== -1) return JSON.parse(stripped.slice(start));
+  throw new Error('No JSON found in response');
+}
+
 async function showAISuggest(tripId, dayDate) {
   const trip = getTrip(tripId);
   const existing = trip.days?.find(d => d.date === dayDate)?.activities || [];
   const days = getDays(trip);
   const dayNum = days.indexOf(dayDate) + 1;
+
+  // Must be defined BEFORE showModal so template literal can reference it
+  const loadingPhrases = [
+    `Consulting my ${trip.destination} contacts…`,
+    `Unlocking the best of ${trip.destination}…`,
+    `Finding experiences you'll actually love…`,
+    `Tapping into local knowledge…`,
+    `Curating your perfect day…`
+  ];
+  const loadingText = loadingPhrases[Math.floor(Math.random() * loadingPhrases.length)];
 
   const prefsBadge = hasPrefs() ? `<span class="prefs-set-badge">✓ Personalised</span>` : '';
   const prefsNudge = !hasPrefs()
@@ -989,15 +1073,6 @@ async function showAISuggest(tripId, dayDate) {
   const prefsSection = prefsText
     ? `\nTraveler's personal preferences — weight ALL suggestions heavily toward these:\n${prefsText}\n`
     : '';
-
-  const loadingPhrases = [
-    `Consulting my ${trip.destination} contacts…`,
-    `Unlocking the best of ${trip.destination}…`,
-    `Finding experiences you'll actually love…`,
-    `Tapping into local knowledge…`,
-    `Curating your perfect day…`
-  ];
-  const loadingText = loadingPhrases[Math.floor(Math.random() * loadingPhrases.length)];
 
   const prompt = `You are the world's finest travel agent with deep, street-level expertise in ${trip.destination}. Design a brilliant, personalised Day ${dayNum} of ${days.length} itinerary.
 
@@ -1046,7 +1121,7 @@ Respond with ONLY valid JSON (no markdown, no explanation):
     }
 
     const data = await res.json();
-    const suggestions = JSON.parse(data.content[0].text).suggestions;
+    const suggestions = extractJSON(data.content[0].text).suggestions;
     window._aiData = { suggestions, tripId, dayDate };
 
     document.getElementById('ai-body').innerHTML = suggestions.map((s, i) => `
@@ -1193,7 +1268,7 @@ function handleClick(e) {
   else if (action === 'settings') showSettings();
   else if (action === 'switch-day') { S.dayIdx = parseInt(el.dataset.day); render(); }
   else if (action === 'ai-suggest') showAISuggest(trip, day);
-  else if (action === 'ai-chat') showAIChat(trip);
+  else if (action === 'ai-chat') showAIChat(trip, el.dataset.day || null);
   else if (action === 'add-activity') showActivityModal(trip, day);
   else if (action === 'edit-trip') showNewTripModal(getTrip(trip));
   else if (action === 'toggle-confirm') { e.stopPropagation(); toggleConfirm(trip, day, act); }
@@ -1218,6 +1293,20 @@ function handleModalClick(e) {
   else if (action === 'delete-activity') deleteActivity(trip, day, act);
   else if (action === 'add-ai-activities') addAIActivities();
   else if (action === 'open-settings-from-ai') { closeModal(); showSettings(); }
+  else if (action === 'apply-chat-plan') {
+    const planIdx = parseInt(el.dataset.plan);
+    applyPlanToDay(planIdx);
+    el.textContent = '✓ Added to planner!';
+    el.disabled = true;
+    el.style.background = 'var(--green)';
+    // Navigate to planner on that day if we know the trip
+    const { dayDate } = CHAT.pendingPlans[planIdx];
+    const t = getTrip(CHAT.tripId);
+    if (t) {
+      const dayIdx = getDays(t).indexOf(dayDate);
+      setTimeout(() => { closeModal(); navigate('planner', CHAT.tripId, dayIdx >= 0 ? dayIdx : 0); }, 900);
+    }
+  }
   else if (action === 'save-settings') {
     S.apiKey = document.getElementById('inp-apikey').value.trim();
     localStorage.setItem('wandr_api_key', S.apiKey);
