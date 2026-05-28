@@ -268,6 +268,22 @@ input, textarea, select { font-family: inherit; }
 .grad-3 { background: linear-gradient(135deg, #8B5CF6, #EC4899); }
 .grad-4 { background: linear-gradient(135deg, #F97316, #EAB308); }
 .grad-5 { background: linear-gradient(135deg, #06B6D4, #10B981); }
+
+/* Share / Sync */
+.sync-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 10px; }
+.sync-badge-linked { background: #EDE9FE; color: #5B21B6; }
+.share-code-display { background: var(--gray-50); border: 1.5px solid var(--gray-200); border-radius: 12px; padding: 24px; text-align: center; }
+.share-code { font-size: 38px; font-weight: 800; letter-spacing: 0.2em; color: var(--blue); font-family: 'Courier New', monospace; }
+.share-hint { font-size: 13px; color: var(--gray-400); margin-top: 8px; }
+.join-strip { background: linear-gradient(135deg, #F0F9FF, #E0F2FE); border: 1.5px solid #BAE6FD; border-radius: 10px; padding: 14px 16px; display: flex; align-items: center; gap: 12px; cursor: pointer; margin-bottom: 16px; transition: background 0.15s; }
+.join-strip:hover { background: #BFDBFE; }
+.sync-indicator { display: flex; align-items: center; gap: 5px; }
+.sync-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); flex-shrink: 0; }
+.sync-dot.live { animation: pulse-dot 2.5s infinite; }
+@keyframes pulse-dot { 0%,100% { opacity:1 } 50% { opacity:0.35 } }
+.share-step { display: flex; gap: 12px; align-items: flex-start; padding: 10px 0; border-bottom: 1px solid var(--gray-100); }
+.share-step:last-child { border-bottom: none; }
+.share-step-num { width: 24px; height: 24px; background: var(--blue); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0; margin-top: 1px; }
 </style>
 </head>
 <body>
@@ -298,7 +314,8 @@ const S = {
   tripId: null,
   dayIdx: 0,
   apiKey: localStorage.getItem('wandr_api_key') || '',
-  prefs: JSON.parse(localStorage.getItem('wandr_prefs') || JSON.stringify(DEFAULT_PREFS))
+  prefs: JSON.parse(localStorage.getItem('wandr_prefs') || JSON.stringify(DEFAULT_PREFS)),
+  fbUrl: localStorage.getItem('wandr_fb_url') || ''
 };
 
 function hasPrefs() {
@@ -318,7 +335,14 @@ function prefsToPromptText() {
   return lines.join('\n');
 }
 
-function save() { localStorage.setItem('wandr_trips', JSON.stringify(S.trips)); }
+function save() {
+  localStorage.setItem('wandr_trips', JSON.stringify(S.trips));
+  // Auto-push to Firebase if the current trip is shared
+  if (S.tripId && S.fbUrl) {
+    const trip = getTrip(S.tripId);
+    if (trip?.shareCode) schedulePush(S.tripId);
+  }
+}
 function getTrip(id) { return S.trips.find(t => t.id === id); }
 function uid() { return Math.random().toString(36).slice(2) + Date.now().toString(36); }
 
@@ -349,6 +373,14 @@ function catIcon(c) {
 function navigate(view, tripId = null, dayIdx = 0) {
   S.view = view; S.tripId = tripId; S.dayIdx = dayIdx;
   render(); window.scrollTo(0, 0);
+  // Start live-sync loop when entering a shared trip planner
+  if (view === 'planner' && tripId) {
+    const trip = getTrip(tripId);
+    if (trip?.shareCode && S.fbUrl) { pullSharedTrip(tripId); startSyncLoop(tripId); }
+    else stopSyncLoop();
+  } else {
+    stopSyncLoop();
+  }
 }
 
 // ─── RENDER DISPATCH ─────────────────────────────────────────
@@ -375,6 +407,14 @@ function renderHome() {
       <div class="home-header">
         <div class="home-title">Your Trips</div>
         <div class="home-subtitle">${S.trips.length === 0 ? 'Plan your first adventure' : `${S.trips.length} trip${S.trips.length !== 1 ? 's' : ''} planned`}</div>
+      </div>
+      <div class="join-strip" data-action="join-trip">
+        <div style="font-size:24px">🤝</div>
+        <div>
+          <div style="font-size:14px;font-weight:600;color:var(--blue)">Join a shared trip</div>
+          <div style="font-size:12px;color:var(--gray-600);margin-top:2px">Enter a companion's share code</div>
+        </div>
+        <div style="margin-left:auto;color:var(--blue);font-size:18px;font-weight:600">→</div>
       </div>
   `;
 
@@ -429,6 +469,7 @@ function tripCard(t, status) {
     upcoming: '<span class="trip-badge badge-upcoming">🔵 Upcoming</span>',
     past:     '<span class="trip-badge badge-past">✓ Past</span>'
   };
+  const syncBadge = t.shareCode ? `<span class="sync-badge sync-badge-linked">🔗 Shared</span>` : '';
   return `
     <div class="trip-card" data-action="open-trip" data-trip="${t.id}">
       <div class="trip-card-banner grad-${t.gradIdx ?? 0}">${t.emoji}</div>
@@ -437,6 +478,7 @@ function tripCard(t, status) {
         <div class="trip-card-dest">📍 ${t.destination}</div>
         <div class="trip-card-meta">
           ${badges[status]}
+          ${syncBadge}
           <span class="trip-card-dates">${fmtShort(t.startDate)} – ${fmtShort(t.endDate)}</span>
         </div>
       </div>
@@ -497,7 +539,11 @@ function renderPlanner() {
               <div class="planner-title">${trip.name}</div>
               <div class="planner-dest">📍 ${trip.destination} · ${fmtShort(trip.startDate)} – ${fmtShort(trip.endDate)}</div>
             </div>
-            <button class="btn btn-ghost btn-sm" data-action="edit-trip" data-trip="${trip.id}">···</button>
+            <div style="display:flex;align-items:center;gap:4px">
+              ${trip.shareCode && S.fbUrl ? `<div class="sync-indicator" title="Live sync active"><div class="sync-dot live"></div><span id="sync-status" style="font-size:11px;color:var(--gray-400)">Live</span></div>` : ''}
+              <button class="btn btn-ghost btn-sm" data-action="share-trip" data-trip="${trip.id}" title="Share trip">🔗</button>
+              <button class="btn btn-ghost btn-sm" data-action="edit-trip" data-trip="${trip.id}">···</button>
+            </div>
           </div>
           <div class="day-tabs-wrap"><div class="day-tabs">${tabs}</div></div>
         </div>
@@ -743,10 +789,16 @@ function showSettings() {
           <div class="pref-options" id="pref-budget">${budgetHtml}</div>
         </div>
 
-        <div>
+        <div style="border-bottom:1px solid var(--gray-100);padding-bottom:16px">
           <div class="pref-section-label">🔑 Claude API Key</div>
           <input class="form-input" id="inp-apikey" type="password" placeholder="sk-ant-..." value="${S.apiKey}">
           <div class="api-hint">Required for ✨ AI Suggest. Stored locally only. Get one at <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a></div>
+        </div>
+
+        <div>
+          <div class="pref-section-label">🔗 Firebase URL <span style="font-size:11px;color:var(--gray-400);font-weight:400">(optional — for trip sharing)</span></div>
+          <input class="form-input" id="inp-fburl" placeholder="https://your-project-default-rtdb.firebaseio.com" value="${S.fbUrl}">
+          <div class="api-hint" style="margin-top:6px">Enables real-time collaboration with travel companions. Free setup: <a href="https://console.firebase.google.com" target="_blank">firebase.google.com</a> → New project → Realtime Database → Start in test mode → copy the URL shown.</div>
         </div>
 
       </div>
@@ -1257,6 +1309,251 @@ Requirements:
   }
 }
 
+// ─── FIREBASE SHARING ─────────────────────────────────────────
+async function fbGet(path) {
+  if (!S.fbUrl) throw new Error('No Firebase URL configured');
+  const url = S.fbUrl.replace(/\/$/, '') + '/' + path + '.json';
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Firebase error ${res.status}`);
+  return await res.json();
+}
+
+async function fbSet(path, data) {
+  if (!S.fbUrl) throw new Error('No Firebase URL configured');
+  const url = S.fbUrl.replace(/\/$/, '') + '/' + path + '.json';
+  const res = await fetch(url, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+    headers: { 'Content-Type': 'application/json' }
+  });
+  if (!res.ok) throw new Error(`Firebase error ${res.status}`);
+  return await res.json();
+}
+
+function shortCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  return Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+}
+
+let _syncTimer = null;
+let _pushDebounce = null;
+
+function startSyncLoop(tripId) {
+  stopSyncLoop();
+  _syncTimer = setInterval(() => pullSharedTrip(tripId), 30000);
+}
+
+function stopSyncLoop() {
+  if (_syncTimer) { clearInterval(_syncTimer); _syncTimer = null; }
+  if (_pushDebounce) { clearTimeout(_pushDebounce); _pushDebounce = null; }
+}
+
+function schedulePush(tripId) {
+  if (_pushDebounce) clearTimeout(_pushDebounce);
+  _pushDebounce = setTimeout(() => pushSharedTrip(tripId), 2500);
+}
+
+async function pushSharedTrip(tripId) {
+  const trip = getTrip(tripId);
+  if (!trip?.shareCode || !S.fbUrl) return;
+  const el = document.getElementById('sync-status');
+  if (el) el.textContent = 'Syncing…';
+  try {
+    await fbSet(`trips/${trip.shareCode}`, {
+      name: trip.name, destination: trip.destination,
+      startDate: trip.startDate, endDate: trip.endDate,
+      emoji: trip.emoji, gradIdx: trip.gradIdx ?? 0,
+      days: trip.days || [], shareCode: trip.shareCode
+    });
+    if (el) el.textContent = 'Synced ✓';
+    setTimeout(() => { const e2 = document.getElementById('sync-status'); if (e2) e2.textContent = 'Live'; }, 2000);
+  } catch(_) {
+    if (el) el.textContent = 'Sync failed';
+  }
+}
+
+async function pullSharedTrip(tripId) {
+  const trip = getTrip(tripId);
+  if (!trip?.shareCode || !S.fbUrl) return;
+  try {
+    const remote = await fbGet(`trips/${trip.shareCode}`);
+    if (!remote || !remote.name) return;
+    const local = getTrip(tripId);
+    if (!local) return;
+    // Merge remote data in (remote wins for itinerary changes)
+    let changed = false;
+    if (JSON.stringify(remote.days) !== JSON.stringify(local.days)) {
+      local.days = remote.days || local.days;
+      changed = true;
+    }
+    if (remote.name !== local.name) { local.name = remote.name; changed = true; }
+    if (remote.destination !== local.destination) { local.destination = remote.destination; changed = true; }
+    if (remote.startDate !== local.startDate) { local.startDate = remote.startDate; changed = true; }
+    if (remote.endDate !== local.endDate) { local.endDate = remote.endDate; changed = true; }
+    if (changed) {
+      localStorage.setItem('wandr_trips', JSON.stringify(S.trips)); // Save without re-triggering push
+      if (S.view === 'planner' && S.tripId === tripId) render();
+    }
+  } catch(_) { /* silent — don't interrupt user */ }
+}
+
+function showShareModal(trip) {
+  if (!S.fbUrl) {
+    // No Firebase set up yet — show setup guide
+    showModal(`
+      <div class="modal">
+        <div class="modal-header">
+          <div class="modal-title">🔗 Share Trip</div>
+          <button class="modal-close" data-action="close-modal">✕</button>
+        </div>
+        <div class="modal-body">
+          <div style="text-align:center;padding:8px 0 16px">
+            <div style="font-size:44px;margin-bottom:10px">🔧</div>
+            <div style="font-size:16px;font-weight:700;margin-bottom:6px">Firebase Setup Required</div>
+            <div style="font-size:13px;color:var(--gray-600);line-height:1.6">Trip sharing uses a free Firebase Realtime Database. It only takes 2 minutes to set up.</div>
+          </div>
+          <div style="background:var(--gray-50);border-radius:10px;padding:14px">
+            <div class="share-step"><div class="share-step-num">1</div><div><strong>Go to</strong> <a href="https://console.firebase.google.com" target="_blank" style="color:var(--blue)">firebase.google.com</a> and create a free project</div></div>
+            <div class="share-step"><div class="share-step-num">2</div><div>In your project, click <strong>Realtime Database</strong> → <strong>Create database</strong> → choose <strong>Test mode</strong></div></div>
+            <div class="share-step"><div class="share-step-num">3</div><div>Copy the database URL (looks like <em>https://…-default-rtdb.firebaseio.com</em>)</div></div>
+            <div class="share-step"><div class="share-step-num">4</div><div>Paste it into <strong>Settings → Firebase URL</strong> in this app</div></div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" data-action="close-modal">Cancel</button>
+          <button class="btn btn-primary" data-action="open-settings-from-ai">Open Settings →</button>
+        </div>
+      </div>`);
+    return;
+  }
+
+  if (trip.shareCode) {
+    _showShareCodeModal(trip);
+    return;
+  }
+
+  // Confirm and generate a new share code
+  const code = shortCode();
+  showModal(`
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-title">🔗 Share This Trip</div>
+        <button class="modal-close" data-action="close-modal">✕</button>
+      </div>
+      <div class="modal-body">
+        <div style="font-size:14px;color:var(--gray-700);line-height:1.6">Invite a travel companion to view and edit this itinerary in real time. Any changes either of you make sync automatically.</div>
+        <div style="background:var(--blue-light);border-radius:10px;padding:14px;font-size:13px;color:#075985">
+          <strong>🔄 How it works:</strong> We'll generate a 6-character code. Your companion enters it in Wandr on their device to join. Changes sync every 30 seconds.
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-action="close-modal">Cancel</button>
+        <button class="btn btn-primary" data-action="enable-sharing" data-trip="${trip.id}" data-code="${code}">Generate Share Code →</button>
+      </div>
+    </div>`);
+}
+
+function _showShareCodeModal(trip) {
+  const joinUrl = `${location.origin}${location.pathname}?join=${trip.shareCode}`;
+  showModal(`
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-title">🔗 Shared — ${trip.name}</div>
+        <button class="modal-close" data-action="close-modal">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="share-code-display">
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--gray-400);margin-bottom:10px">Share Code</div>
+          <div class="share-code">${trip.shareCode}</div>
+          <div class="share-hint">Your companion enters this code in Wandr to join the trip</div>
+        </div>
+        <button class="btn btn-secondary" style="width:100%;justify-content:center" data-action="copy-share-link" data-url="${joinUrl}">📋 Copy direct join link</button>
+        <div style="font-size:13px;color:var(--gray-600);background:var(--gray-50);border-radius:8px;padding:12px;line-height:1.6">
+          <strong>🔄 Live sync on</strong> — edits you or your companion make are synced every 30 seconds automatically.
+        </div>
+        <button class="btn btn-danger btn-sm" style="width:100%;justify-content:center;margin-top:4px" data-action="unshare-trip" data-trip="${trip.id}">🔒 Stop sharing this trip</button>
+      </div>
+    </div>`);
+}
+
+function showJoinModal(prefillCode = '') {
+  showModal(`
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-title">🤝 Join a Shared Trip</div>
+        <button class="modal-close" data-action="close-modal">✕</button>
+      </div>
+      <div class="modal-body">
+        <div style="font-size:14px;color:var(--gray-600);line-height:1.6">Enter the 6-character share code from your travel companion to join their trip and collaborate on the itinerary.</div>
+        <div class="form-group">
+          <div class="form-label">Share Code</div>
+          <input class="form-input" id="inp-join-code" placeholder="e.g. ABC123" maxlength="6"
+            style="text-transform:uppercase;font-size:22px;letter-spacing:.15em;text-align:center;font-family:monospace;font-weight:700"
+            value="${prefillCode}">
+        </div>
+        ${!S.fbUrl ? `<div style="background:var(--amber-light);border-radius:8px;padding:10px 12px;font-size:13px;color:#92400E">⚠️ You need a Firebase URL set up in Settings before you can join shared trips.</div>` : ''}
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-action="close-modal">Cancel</button>
+        <button class="btn btn-primary" data-action="do-join-trip" ${!S.fbUrl ? 'disabled' : ''}>Join Trip →</button>
+      </div>
+    </div>`);
+
+  const inp = document.getElementById('inp-join-code');
+  if (inp) {
+    inp.addEventListener('input', e => {
+      e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+    });
+    if (prefillCode) inp.dispatchEvent(new Event('input'));
+  }
+}
+
+async function doJoinTrip() {
+  const inp = document.getElementById('inp-join-code');
+  const code = (inp?.value || '').trim().toUpperCase();
+  if (!code || code.length !== 6) { alert('Please enter a 6-character share code.'); return; }
+  if (!S.fbUrl) { alert('Please add your Firebase URL in Settings first.'); return; }
+
+  const btn = document.querySelector('[data-action="do-join-trip"]');
+  if (btn) { btn.textContent = 'Joining…'; btn.disabled = true; }
+
+  try {
+    const remote = await fbGet(`trips/${code}`);
+    if (!remote || !remote.name) {
+      alert('Trip not found. Double-check the code with your companion.');
+      if (btn) { btn.textContent = 'Join Trip →'; btn.disabled = false; }
+      return;
+    }
+
+    // Already joined?
+    const existing = S.trips.find(t => t.shareCode === code);
+    if (existing) {
+      closeModal();
+      navigate('planner', existing.id, 0);
+      return;
+    }
+
+    const trip = {
+      id: uid(),
+      name: remote.name,
+      destination: remote.destination,
+      startDate: remote.startDate,
+      endDate: remote.endDate,
+      emoji: remote.emoji || '✈️',
+      gradIdx: remote.gradIdx ?? Math.floor(Math.random() * 6),
+      days: remote.days || [],
+      shareCode: code
+    };
+    S.trips.push(trip);
+    localStorage.setItem('wandr_trips', JSON.stringify(S.trips)); // Direct save — no push loop
+    closeModal();
+    navigate('planner', trip.id, 0);
+  } catch(e) {
+    alert('Failed to join trip: ' + e.message);
+    if (btn) { btn.textContent = 'Join Trip →'; btn.disabled = false; }
+  }
+}
+
 // ─── MUTATIONS ────────────────────────────────────────────────
 function ensureDay(trip, date) {
   if (!trip.days) trip.days = [];
@@ -1367,6 +1664,8 @@ function handleClick(e) {
     const a = t.days?.find(x => x.date === day)?.activities?.find(x => x.id === act);
     if (a) showActivityModal(trip, day, a);
   }
+  else if (action === 'share-trip') showShareModal(getTrip(trip));
+  else if (action === 'join-trip') showJoinModal();
 }
 
 function handleModalClick(e) {
@@ -1401,9 +1700,34 @@ function handleModalClick(e) {
       setTimeout(() => { closeModal(); navigate('planner', CHAT.tripId, dayIdx >= 0 ? dayIdx : 0); }, 900);
     }
   }
+  else if (action === 'enable-sharing') {
+    const code = el.dataset.code;
+    const t = getTrip(trip);
+    if (!t) return;
+    t.shareCode = code;
+    localStorage.setItem('wandr_trips', JSON.stringify(S.trips));
+    el.textContent = 'Publishing…'; el.disabled = true;
+    pushSharedTrip(trip)
+      .then(() => { closeModal(); _showShareCodeModal(t); startSyncLoop(trip); render(); })
+      .catch(err => { alert('Sharing failed: ' + err.message); delete t.shareCode; localStorage.setItem('wandr_trips', JSON.stringify(S.trips)); el.textContent = 'Generate Share Code →'; el.disabled = false; });
+  }
+  else if (action === 'unshare-trip') {
+    if (!confirm('Stop sharing this trip? Your companion will lose access.')) return;
+    const t = getTrip(trip);
+    if (t) { delete t.shareCode; save(); stopSyncLoop(); closeModal(); render(); }
+  }
+  else if (action === 'copy-share-link') {
+    navigator.clipboard.writeText(el.dataset.url)
+      .then(() => { el.textContent = '✓ Copied!'; setTimeout(() => { el.textContent = '📋 Copy direct join link'; }, 2200); })
+      .catch(() => { prompt('Copy this link:', el.dataset.url); });
+  }
+  else if (action === 'do-join-trip') { doJoinTrip(); }
   else if (action === 'save-settings') {
     S.apiKey = document.getElementById('inp-apikey').value.trim();
     localStorage.setItem('wandr_api_key', S.apiKey);
+    // Save Firebase URL
+    const fbEl = document.getElementById('inp-fburl');
+    if (fbEl) { S.fbUrl = fbEl.value.trim(); localStorage.setItem('wandr_fb_url', S.fbUrl); }
     // Save interests
     S.prefs.interests = [...document.querySelectorAll('[data-pref-interest].active')].map(el => el.dataset.prefInterest);
     // Save pace
@@ -1418,7 +1742,16 @@ function handleModalClick(e) {
 }
 
 // ─── INIT ─────────────────────────────────────────────────────
-render();
+(function init() {
+  render();
+  // Auto-open join modal when a ?join=CODE deep-link is used
+  const joinCode = new URLSearchParams(location.search).get('join');
+  if (joinCode) {
+    const clean = joinCode.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+    // Small delay so the home view renders first
+    setTimeout(() => showJoinModal(clean), 150);
+  }
+})();
 </script>
 </body>
 </html>
